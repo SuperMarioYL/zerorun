@@ -1,0 +1,61 @@
+# ZeroRun model-config registry — Qwen 3.6 A3B
+#
+# Qwen 3.6 A3B is a frontier Chinese open-weight MoE with an ~3B-active-parameter
+# routing core — small enough to reach consumer-class cards that the heavier
+# frontier MoEs (DeepSeek V4 / Kimi K3) cannot. This entry is data, not code:
+# a community PR that tunes a quant floor or adds a chat-template fix needs no
+# Python change. The CLI alias the user types (`zerorun qwen-3.6`) is this
+# file's stem.
+
+model: qwen3.6-a3b
+hf_id: qwen/Qwen3.6-A3B
+description: >
+  Qwen 3.6 A3B — frontier Chinese open-weight MoE with an ~3B-active routing
+  core. The smallest of the v0.1 hero quartet; the most likely fit for a
+  single consumer GPU.
+
+quants:
+  # --- vLLM path -------------------------------------------------------------
+  # FP8 (weight+activation) on Hopper. Qwen 3.6 A3B is small enough that even a
+  # 24 GB card clears this floor comfortably; the FP8 path keeps throughput
+  # high via the tensor-core route.
+  - format: FP8
+    backend: vllm
+    min_vram_gb: 24
+    compute_cap_min: 9.0            # Hopper — FP8 tensor cores
+    args:
+      - "--kv-cache-dtype"
+      - "fp8"
+      - "--tensor-parallel-size"
+      - "1"
+      - "--max-model-len"
+      - "32768"
+
+  # --- llama.cpp path --------------------------------------------------------
+  # Q4_K_M — the broad-fit GGUF quant. A3B is compact, so this is the pick on
+  # a 16 GB card (RTX 4060 / 4070 class) where the FP8/vllm path does not fit.
+  - format: Q4_K_M
+    backend: llama.cpp
+    min_vram_gb: 12
+    compute_cap_min: 7.5            # Turing+ (RTX 20xx / A100 family)
+    args:
+      - "-c"
+      - "8192"
+      - "--n-gpu-layers"
+      - "999"
+
+  # Q8_0 — higher-accuracy GGUF for cards with headroom. Ranked below Q4_K_M on
+  # perf but above it on accuracy; the picker prefers it only when VRAM
+  # comfortably exceeds the Q4_K_M floor.
+  - format: Q8_0
+    backend: llama.cpp
+    min_vram_gb: 20
+    compute_cap_min: 7.5
+    args:
+      - "-c"
+      - "8192"
+      - "--n-gpu-layers"
+      - "999"
+
+chat_template_ref: qwen-3.6
+staleness_pin: "qwen-3.6@2026-07"   # m3 roadmap: drift alert vs upstream

@@ -1,0 +1,58 @@
+# ZeroRun model-config registry — DeepSeek V4 flash dspark
+#
+# This is data, not code: a community PR that adds a quant variant or fixes a
+# chat-template reference needs no Python change. The CLI alias the user types
+# (`zerorun deepseek-v4`) is this file's stem.
+
+model: deepseek-v4-flash-dspark
+hf_id: deepseek-ai/DeepSeek-V4-flash-dspark
+description: >
+  DeepSeek V4 flash dspark — frontier Chinese open-weight MoE. The exact model
+  behind the "5 hours configuring vLLM" pain ZeroRun was built to remove.
+
+quants:
+  # --- vLLM path -------------------------------------------------------------
+  # NVFP4 (W4A4) on Hopper. Flash-Attention-4 needs compute capability 9.0,
+  # so this variant is gated to H100-class cards and lands the smallest VRAM
+  # footprint for max throughput.
+  - format: NVFP4
+    backend: vllm
+    min_vram_gb: 48
+    compute_cap_min: 9.0            # Hopper (H100); FA-4 tensor-core path
+    args:
+      - "--kv-cache-dtype"
+      - "fp8"
+      - "--tensor-parallel-size"
+      - "1"
+      - "--max-model-len"
+      - "65536"
+
+  # --- llama.cpp path --------------------------------------------------------
+  # Q4_K_M — the broad-fit GGUF quant. Works on Ampere+ consumer cards (RTX
+  # 30xx / 40xx) and repurposed enterprise boards; the most likely pick for a
+  # single-GPU, sub-48GB rig.
+  - format: Q4_K_M
+    backend: llama.cpp
+    min_vram_gb: 32
+    compute_cap_min: 7.5            # Turing+ (RTX 20xx / A100 family)
+    args:
+      - "-c"
+      - "8192"
+      - "--n-gpu-layers"
+      - "999"
+
+  # Q8_0 — higher-accuracy GGUF for cards with the headroom (80GB+ / dual-rig).
+  # Ranked below Q4_K_M on perf but above it on accuracy; the picker prefers it
+  # only when VRAM comfortably exceeds the Q4_K_M floor.
+  - format: Q8_0
+    backend: llama.cpp
+    min_vram_gb: 60
+    compute_cap_min: 7.5
+    args:
+      - "-c"
+      - "8192"
+      - "--n-gpu-layers"
+      - "999"
+
+chat_template_ref: deepseek-v4
+staleness_pin: "deepseek-v4@2026-07"   # m3 roadmap: drift alert vs upstream

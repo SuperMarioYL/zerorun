@@ -1,0 +1,69 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zerorun"
+version = "0.1.0"
+description = "One-command launcher that probes your GPU, picks the best quant + backend + chat template for frontier Chinese open-weight MoEs, and just runs it."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.12"
+authors = [
+    { name = "SuperMarioYL" },
+]
+keywords = ["llm", "vllm", "llama-cpp", "gpu", "moe", "local-llm", "inference"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "typer>=0.12",
+    "pyyaml>=6.0",
+    "rich>=13.7",
+    "pynvml>=12.0",
+    "huggingface_hub>=0.24",
+]
+
+[project.scripts]
+zerorun = "zerorun.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/SuperMarioYL/zerorun"
+Repository = "https://github.com/SuperMarioYL/zerorun"
+Issues = "https://github.com/SuperMarioYL/zerorun/issues"
+Changelog = "https://github.com/SuperMarioYL/zerorun/blob/main/CHANGELOG.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/zerorun"]
+# Ship the versioned model-config registry (data, not code) inside the wheel so
+# an installed `zerorun` (uv tool install / pipx) can find its hero models
+# without a checkout. default_registry_dir() resolves this packaged copy when
+# no repo-root registry/ is present (installed mode).
+force-include = { "registry" = "zerorun/_registry" }
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src/zerorun",
+    "/registry",
+    "/tests",
+    "/assets",
+    "/docs",
+    "/LICENSE",
+    "/README.md",
+    "/README.en.md",
+    "/CHANGELOG.md",
+    "/pyproject.toml",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+

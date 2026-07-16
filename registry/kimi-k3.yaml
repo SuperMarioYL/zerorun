@@ -1,0 +1,63 @@
+# ZeroRun model-config registry — Kimi K3
+#
+# Kimi K3 (Moonshot AI) — the heaviest of the v0.1 hero quartet, a frontier
+# Chinese open-weight MoE whose scale pushes the multi-backend pick past a
+# single-consumer-GPU floor for the higher-accuracy paths. The dual-backend
+# axis (vLLM for throughput on Hopper, llama.cpp for broad-fit) is exactly the
+# choice the picker exists to resolve. Data, not code: a community PR that
+# tunes a quant floor needs no Python change. The CLI alias the user types
+# (`zerorun kimi-k3`) is this file's stem.
+
+model: kimi-k3
+hf_id: moonshotai/Kimi-K3
+description: >
+  Kimi K3 — frontier Chinese open-weight MoE from Moonshot AI. The heaviest
+  of the v0.1 hero quartet; multi-backend pick matters most here.
+
+quants:
+  # --- vLLM path -------------------------------------------------------------
+  # NVFP4 (W4A4) on Hopper — the throughput path. Kimi K3's scale means even
+  # the NVFP4 floor is above most consumer cards; this is the H100/H200 path.
+  - format: NVFP4
+    backend: vllm
+    min_vram_gb: 56
+    compute_cap_min: 9.0            # Hopper (H100/H200); FA-4 tensor-core path
+    args:
+      - "--kv-cache-dtype"
+      - "fp8"
+      - "--tensor-parallel-size"
+      - "1"
+      - "--max-model-len"
+      - "65536"
+
+  # FP8 (weight+activation) — higher accuracy than NVFP4, needs more VRAM.
+  # The picker prefers this on an H100 with headroom (accuracy is the primary
+  # axis); NVFP4 wins where VRAM is tight.
+  - format: FP8
+    backend: vllm
+    min_vram_gb: 72
+    compute_cap_min: 9.0
+    args:
+      - "--kv-cache-dtype"
+      - "fp8"
+      - "--tensor-parallel-size"
+      - "1"
+      - "--max-model-len"
+      - "32768"
+
+  # --- llama.cpp path --------------------------------------------------------
+  # Q4_K_M — the broad-fit GGUF quant for dual-rig / large-VRAM setups that
+  # cannot meet the vLLM compute-cap floor (e.g. repurposed Ampere enterprise
+  # cards below Hopper).
+  - format: Q4_K_M
+    backend: llama.cpp
+    min_vram_gb: 36
+    compute_cap_min: 7.5            # Turing+ (RTX 20xx / A100 family)
+    args:
+      - "-c"
+      - "8192"
+      - "--n-gpu-layers"
+      - "999"
+
+chat_template_ref: kimi-k3
+staleness_pin: "kimi-k3@2026-07"   # m3 roadmap: drift alert vs upstream

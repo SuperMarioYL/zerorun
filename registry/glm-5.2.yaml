@@ -1,0 +1,59 @@
+# ZeroRun model-config registry — GLM 5.2
+#
+# GLM 5.2 (zai-org) — frontier Chinese open-weight MoE. The evidence flagged
+# GLM-5.2's chat-template-staleness angle: templates ship broken (tool-calling,
+# "laziness"), get patched upstream, but a saved GGUF carries no version pin.
+# ZeroRun's `chat_template_ref` + `staleness_pin` (m3 alert) is the registry's
+# answer. Data, not code: a community PR fixing a template ref needs no Python
+# change. The CLI alias the user types (`zerorun glm-5.2`) is this file's stem.
+
+model: glm-5.2
+hf_id: zai-org/GLM-5.2
+description: >
+  GLM 5.2 — frontier Chinese open-weight MoE from Zhipu AI (zai-org). The
+  model whose chat-template staleness ZeroRun's registry pinning is built to
+  surface.
+
+quants:
+  # --- vLLM path -------------------------------------------------------------
+  # NVFP4 (W4A4) on Hopper. Flash-Attention-4 needs compute capability 9.0,
+  # so this variant is gated to H100-class cards and lands the smallest VRAM
+  # footprint for max throughput.
+  - format: NVFP4
+    backend: vllm
+    min_vram_gb: 40
+    compute_cap_min: 9.0            # Hopper (H100); FA-4 tensor-core path
+    args:
+      - "--kv-cache-dtype"
+      - "fp8"
+      - "--tensor-parallel-size"
+      - "1"
+      - "--max-model-len"
+      - "65536"
+
+  # --- llama.cpp path --------------------------------------------------------
+  # Q4_K_M — the broad-fit GGUF quant for single-GPU rigs (RTX 3090/4090 /
+  # repurposed enterprise cards under the NVFP4 floor).
+  - format: Q4_K_M
+    backend: llama.cpp
+    min_vram_gb: 28
+    compute_cap_min: 7.5            # Turing+ (RTX 20xx / A100 family)
+    args:
+      - "-c"
+      - "8192"
+      - "--n-gpu-layers"
+      - "999"
+
+  # Q8_0 — higher-accuracy GGUF for cards with the headroom (80 GB+ / dual-rig).
+  - format: Q8_0
+    backend: llama.cpp
+    min_vram_gb: 48
+    compute_cap_min: 7.5
+    args:
+      - "-c"
+      - "8192"
+      - "--n-gpu-layers"
+      - "999"
+
+chat_template_ref: glm-5.2
+staleness_pin: "glm-5.2@2026-07"   # m3 roadmap: drift alert vs upstream
