@@ -7,61 +7,61 @@
   "accent": ["#e6a144"],
   "hero": {
     "eyebrow": {
-      "zh": "前沿中文 MoE · 一键探测启动 · 本地推理",
-      "en": "Frontier Chinese MoE · probe-and-launch · local inference"
+      "zh": "本地跑前沿中文开源大模型 · 换模型不再重配",
+      "en": "Run frontier Chinese open-source models locally · no reconfig per swap"
     },
     "headline": {
-      "zh": "5 小时的换模型配置\n压成一条自动选对的命令",
-      "en": "5 hours of per-swap config\npressed into one command that picks right"
+      "zh": "换个模型，要重配 5 小时？\n一条命令，选对、跑起。",
+      "en": "5 hours to reconfigure every model swap?\nOne command picks right and runs it."
     },
     "sub": {
-      "zh": "探测你的 GPU，为指定模型自动挑选 quant + backend + chat template，用合理默认值直接拉起。",
-      "en": "Probes your GPU, auto-picks the quant + backend + chat template for the named model, and just runs it with sane defaults."
+      "zh": "每换一个前沿中文开源大模型，你都要重解同一道题：量化、后端、对话模板怎么搭——手写一遍，上游一补丁就静默过时。zerorun 看清你的显卡，替你一次配对，直接拉起。",
+      "en": "Every swap to a new frontier Chinese open-source model reopens the same puzzle: which quantization, backend, and chat template fit — hand-configured once, silently stale after the next upstream patch. zerorun reads your GPU, picks the match, and just runs it."
     },
     "command": "zerorun deepseek-v4"
   },
   "advantages": [
     {
-      "title": { "zh": "GPU 探测，硬件感知", "en": "GPU probe, hardware-aware" },
+      "title": { "zh": "看清你的显卡能跑什么", "en": "See what your card can actually run" },
       "body": {
-        "zh": "pynvml 探测 VRAM / 算力 / 架构族，nvidia-smi 解析兜底；没有 NVIDIA 卡也能用 --gpu 模拟一张 H100 看挑选逻辑。",
-        "en": "pynvml probes VRAM / compute-cap / arch family with an nvidia-smi parse fallback; no NVIDIA card needed — --gpu simulates an H100 to demo the picker."
+        "zh": "自动读取显存与算力，告诉你哪个模型放得下、哪种配置跑得动；没 NVIDIA 卡也能模拟一张大卡预演挑选结果。",
+        "en": "Reads your VRAM and compute, tells you which model fits and which config runs; no NVIDIA card needed — simulate a big card to preview the pick."
       },
-      "chips": ["› pynvml + nvidia-smi 兜底", "› --gpu 模拟任意卡", "› 标注 (simulated)"]
+      "chips": ["› 读显存与算力", "› 没卡也能模拟预演", "› 模拟结果有标注"]
     },
     {
-      "title": { "zh": "纯函数挑选器，算式可验", "en": "Pure-function picker, auditable math" },
+      "title": { "zh": "为什么这么选，说得清", "en": "Explains why it picks what it picks" },
       "body": {
-        "zh": "(GPUProbe, ModelEntry) -> ranked Picks 是无 I/O 的纯函数；accuracy 为主轴，backend 吞吐与 VRAM 余量只破平局；--dry-run 打印每一项算式，不可行项也列出差距。",
-        "en": "(GPUProbe, ModelEntry) -> ranked Picks is a pure, I/O-free function; accuracy is the primary axis, backend throughput and VRAM headroom only break ties; --dry-run prints the arithmetic, infeasible variants list the shortfall."
+        "zh": "挑选有据可查：精度保留为主轴，后端吞吐与显存余量只做破平；跑不了的配置不静默失败，会告诉你离放得下还差多少——是\"差 16 GB\"，不是一个干巴巴的\"跑不了\"。",
+        "en": "The pick is auditable: accuracy retention leads, backend throughput and VRAM headroom only break ties; infeasible configs don't fail silently — they tell you how far off, \"short by 16 GB\", not a bare \"won't run\"."
       },
-      "chips": ["› accuracy 0.60–1.00 主轴", "› --dry-run 打印算式", "› 不可行项列差距"]
+      "chips": ["› 精度为主轴", "› 每项挑选可查", "› 跑不了列差距"]
     },
     {
-      "title": { "zh": "拉起后端，打印端点", "en": "Launches backend, prints endpoint" },
+      "title": { "zh": "一条命令拉起，给你一个能用的端点", "en": "One command launches it, hands you a working endpoint" },
       "body": {
-        "zh": "拼出后端 argv，把 vLLM 或 llama.cpp 作为子进程拉起，流式输出，打印 OpenAI 兼容端点 http://localhost:8000/v1——一个进程，没有微服务，没有 k8s。",
-        "en": "Builds the backend argv, spawns vLLM or llama.cpp as a child subprocess, streams output, and prints the OpenAI-compatible endpoint http://localhost:8000/v1 — one process, no microservices, no k8s."
+        "zh": "选好配置就自动拉起推理后端，流式输出日志，打印一个本地端点——任意客户端直连，你不用自己拼启动参数、不用搭服务。",
+        "en": "Once the config is picked, it launches the inference backend, streams logs, and prints a local endpoint — any client connects directly; you don't assemble launch flags or stand up services."
       },
-      "chips": ["› vLLM + llama.cpp", "› OpenAI 兼容 /v1", "› 单进程无 k8s"]
+      "chips": ["› 自动拉起后端", "› 本地端点即连即用", "› 不用自己拼参数"]
     },
     {
-      "title": { "zh": "YAML 注册表，数据非代码", "en": "YAML registry, data not code" },
+      "title": { "zh": "配置是数据，不是代码", "en": "Configs are data, not code" },
       "body": {
-        "zh": "护城河是版本化、硬件感知的 YAML 注册表——加一个 quant 下限或修一个 chat-template 引用只需改一行 YAML，无需碰 Python；fork 自己的注册表只需一个环境变量。",
-        "en": "The moat is a versioned, hardware-aware YAML registry — adding a quant floor or fixing a chat-template reference is a one-line YAML change, no Python; fork your own registry with one env var."
+        "zh": "每个模型的配置是版本化、硬件感知的数据条目——加一个量化下限或修一个对话模板引用只需改一行，无需碰代码；社区可提 PR，你也可以 fork 一份自己的配置表。",
+        "en": "Each model's config is a versioned, hardware-aware data entry — adding a quant floor or fixing a chat-template reference is a one-line change, no code touched; the community can PR, and you can fork your own config table."
       },
-      "chips": ["› CLI 别名 = 文件名", "› ZERORUN_REGISTRY_DIR 可 fork", "› 社区可 PR"]
+      "chips": ["› 一行改配置不碰代码", "› 社区可 PR", "› 可 fork 自己的表"]
     }
   ],
   "scene": {
     "kind": "hub-nodes",
-    "nodes": ["vLLM", "llama.cpp", "DeepSeek V4", "Qwen 3.6", "GLM 5.2", "Kimi K3"]
+    "nodes": ["DeepSeek V4", "Qwen 3.6", "GLM 5.2", "Kimi K3"]
   },
   "cta": {
     "headline": {
-      "zh": "一条命令，跑起前沿中文 MoE",
-      "en": "One command to run a frontier Chinese MoE"
+      "zh": "一条命令，跑起前沿中文开源大模型",
+      "en": "One command to run a frontier Chinese open-source model"
     },
     "sub": {
       "zh": "uv tool install zerorun，然后 zerorun deepseek-v4——首跑会下载权重，是等待不是操作。",
@@ -74,8 +74,8 @@
   },
   "footer": {
     "tag": {
-      "zh": "5h → 1 命令 · 探测 GPU，为前沿中文开源 MoE 自动选 quant+backend+template 并直接拉起 · MIT 开源 · Python · vLLM + llama.cpp",
-      "en": "5h → 1 command · probe your GPU, auto-pick quant+backend+template for frontier Chinese open MoE and just run it · MIT open source · Python · vLLM + llama.cpp"
+      "zh": "5h → 1 命令 · 看清你的显卡，为前沿中文开源大模型自动选对配置并直接拉起 · MIT 开源",
+      "en": "5h → 1 command · reads your GPU, picks the right config for frontier Chinese open-source models and just runs it · MIT open source"
     }
   }
 }
