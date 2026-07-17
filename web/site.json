@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "name": "zerorun",
+  "github": "https://github.com/SuperMarioYL/zerorun",
+  "host": "zerorun.lei6393.com",
+  "lang": { "primary": "zh", "toggle": true },
+  "accent": ["#e6a144"],
+  "hero": {
+    "eyebrow": {
+      "zh": "前沿中文 MoE · 一键探测启动 · 本地推理",
+      "en": "Frontier Chinese MoE · probe-and-launch · local inference"
+    },
+    "headline": {
+      "zh": "5 小时的换模型配置\n压成一条自动选对的命令",
+      "en": "5 hours of per-swap config\npressed into one command that picks right"
+    },
+    "sub": {
+      "zh": "探测你的 GPU，为指定模型自动挑选 quant + backend + chat template，用合理默认值直接拉起。",
+      "en": "Probes your GPU, auto-picks the quant + backend + chat template for the named model, and just runs it with sane defaults."
+    },
+    "command": "zerorun deepseek-v4"
+  },
+  "advantages": [
+    {
+      "title": { "zh": "GPU 探测，硬件感知", "en": "GPU probe, hardware-aware" },
+      "body": {
+        "zh": "pynvml 探测 VRAM / 算力 / 架构族，nvidia-smi 解析兜底；没有 NVIDIA 卡也能用 --gpu 模拟一张 H100 看挑选逻辑。",
+        "en": "pynvml probes VRAM / compute-cap / arch family with an nvidia-smi parse fallback; no NVIDIA card needed — --gpu simulates an H100 to demo the picker."
+      },
+      "chips": ["› pynvml + nvidia-smi 兜底", "› --gpu 模拟任意卡", "› 标注 (simulated)"]
+    },
+    {
+      "title": { "zh": "纯函数挑选器，算式可验", "en": "Pure-function picker, auditable math" },
+      "body": {
+        "zh": "(GPUProbe, ModelEntry) -> ranked Picks 是无 I/O 的纯函数；accuracy 为主轴，backend 吞吐与 VRAM 余量只破平局；--dry-run 打印每一项算式，不可行项也列出差距。",
+        "en": "(GPUProbe, ModelEntry) -> ranked Picks is a pure, I/O-free function; accuracy is the primary axis, backend throughput and VRAM headroom only break ties; --dry-run prints the arithmetic, infeasible variants list the shortfall."
+      },
+      "chips": ["› accuracy 0.60–1.00 主轴", "› --dry-run 打印算式", "› 不可行项列差距"]
+    },
+    {
+      "title": { "zh": "拉起后端，打印端点", "en": "Launches backend, prints endpoint" },
+      "body": {
+        "zh": "拼出后端 argv，把 vLLM 或 llama.cpp 作为子进程拉起，流式输出，打印 OpenAI 兼容端点 http://localhost:8000/v1——一个进程，没有微服务，没有 k8s。",
+        "en": "Builds the backend argv, spawns vLLM or llama.cpp as a child subprocess, streams output, and prints the OpenAI-compatible endpoint http://localhost:8000/v1 — one process, no microservices, no k8s."
+      },
+      "chips": ["› vLLM + llama.cpp", "› OpenAI 兼容 /v1", "› 单进程无 k8s"]
+    },
+    {
+      "title": { "zh": "YAML 注册表，数据非代码", "en": "YAML registry, data not code" },
+      "body": {
+        "zh": "护城河是版本化、硬件感知的 YAML 注册表——加一个 quant 下限或修一个 chat-template 引用只需改一行 YAML，无需碰 Python；fork 自己的注册表只需一个环境变量。",
+        "en": "The moat is a versioned, hardware-aware YAML registry — adding a quant floor or fixing a chat-template reference is a one-line YAML change, no Python; fork your own registry with one env var."
+      },
+      "chips": ["› CLI 别名 = 文件名", "› ZERORUN_REGISTRY_DIR 可 fork", "› 社区可 PR"]
+    }
+  ],
+  "scene": {
+    "kind": "hub-nodes",
+    "nodes": ["vLLM", "llama.cpp", "DeepSeek V4", "Qwen 3.6", "GLM 5.2", "Kimi K3"]
+  },
+  "cta": {
+    "headline": {
+      "zh": "一条命令，跑起前沿中文 MoE",
+      "en": "One command to run a frontier Chinese MoE"
+    },
+    "sub": {
+      "zh": "uv tool install zerorun，然后 zerorun deepseek-v4——首跑会下载权重，是等待不是操作。",
+      "en": "uv tool install zerorun, then zerorun deepseek-v4 — first run downloads weights, a wait not effort."
+    },
+    "button": {
+      "zh": "开始使用",
+      "en": "Get started"
+    }
+  },
+  "footer": {
+    "tag": {
+      "zh": "5h → 1 命令 · 探测 GPU，为前沿中文开源 MoE 自动选 quant+backend+template 并直接拉起 · MIT 开源 · Python · vLLM + llama.cpp",
+      "en": "5h → 1 command · probe your GPU, auto-pick quant+backend+template for frontier Chinese open MoE and just run it · MIT open source · Python · vLLM + llama.cpp"
+    }
+  }
+}
