@@ -11,7 +11,7 @@
 <p align="center"><sub>ZeroRun 是一个一键启动器：探测你的 GPU，为任意前沿中文开源 MoE 自动挑选最佳 quant + backend + chat template，然后直接跑起来——把经社区验证的"每次换模型 5 小时配置"压缩成一条命令。</sub></p>
 
 <p align="center">
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="license"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="license"></a>
   <a href="https://github.com/SuperMarioYL/zerorun/releases"><img src="https://img.shields.io/github/v/release/SuperMarioYL/zerorun?color=blue" alt="latest release"></a>
   <a href="https://github.com/SuperMarioYL/zerorun/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/SuperMarioYL/zerorun/ci.yml?branch=main&label=CI" alt="CI"></a>
   <img src="https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white" alt="python">
