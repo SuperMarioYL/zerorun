@@ -7,7 +7,7 @@ name = "zerorun"
 version = "0.1.0"
 description = "One-command launcher that probes your GPU, picks the best quant + backend + chat template for frontier Chinese open-weight MoEs, and just runs it."
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 requires-python = ">=3.12"
 authors = [
     { name = "SuperMarioYL" },
@@ -17,7 +17,7 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
