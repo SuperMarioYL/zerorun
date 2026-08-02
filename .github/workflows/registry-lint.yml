@@ -1,0 +1,39 @@
+name: registry-lint
+
+# Validates the versioned model-config registry on any PR that touches it.
+# A community PR that adds/edits a registry/<alias>.yaml must pass the typed
+# schema (ModelEntry.from_dict + QuantConfig validation) before it can merge,
+# so the moat stays machine-checkable — no hand-eyeballing YAML.
+
+on:
+  pull_request:
+    paths:
+      - "registry/**"
+      - "scripts/validate_registry.py"
+      - "src/zerorun/registry/**"
+      - ".github/workflows/registry-lint.yml"
+  push:
+    branches: [main]
+    paths:
+      - "registry/**"
+      - "scripts/validate_registry.py"
+      - "src/zerorun/registry/**"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate the registry against the typed schema
+        run: python scripts/validate_registry.py
+      - name: Run registry + schema tests
+        run: |
+          pip install -e ".[dev]" 2>/dev/null || pip install -e .
+          python -m pytest tests/test_schema.py tests/test_picker.py tests/test_staleness.py -q

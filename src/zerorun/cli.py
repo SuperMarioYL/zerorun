@@ -3,7 +3,7 @@
 Surface (per the plan):
 
 * ``zerorun probe``            — print detected GPU + which registry models fit.
-* ``zerorun --list``           — list every registry model + its picked config.
+* ``zerorun --list``           — list every registry model + its picked config + staleness.
 * ``zerorun deepseek-v4``      — probe, pick, launch the backend, print endpoint.
 * ``zerorun deepseek-v4 --dry-run``        — print the picked config, no launch.
 * ``zerorun deepseek-v4 --backend vllm``  — override the chosen backend.
@@ -11,11 +11,13 @@ Surface (per the plan):
 * ``zerorun deepseek-v4 --gpu "80:9.0"``    — simulate an H100 (no NVIDIA card
   needed — demos the picker logic on any machine; the probe is labelled
   ``(simulated)``).
+* ``zerorun staleness``        — per-model staleness report (drift alert vs the
+  registry's ``staleness_pin``).
 
 Routing: a single Typer command (no group, no COMMAND slot) inspects the
-first positional. ``probe`` is a reserved verb (dispatched to the GPU-only
-report); ``--list`` lists the registry; any other token is a registry key
-launch. Typer collapses a one-command app to a single-command CLI with no
+first positional. ``probe`` and ``staleness`` are reserved verbs (dispatched
+to the GPU-only report and the staleness report respectively); ``--list`` lists
+the registry; any other token is a registry key launch. Typer collapses a one-command app to a single-command CLI with no
 command-name prefix, so ``zerorun deepseek-v4 --dry-run`` parses as a plain
 positional + option (a group would mis-route ``--dry-run`` as a subcommand).
 Every hero-model alias (``deepseek-v4``, ``qwen-3.6``, ``glm-5.2``,
@@ -41,6 +43,10 @@ from .registry.schema import (
     default_registry_dir,
     list_registry_keys,
     load_registry_dir,
+)
+from .staleness import (
+    STALENESS_VERB,
+    staleness_report_for_entries,
 )
 
 # Re-exported so tests import the launcher through the cli package surface.
@@ -213,25 +219,97 @@ def _render_list(probe: GPUProbe, entries: dict[str, ModelEntry]) -> None:
     table.add_column("model", overflow="fold")
     table.add_column("pick", overflow="fold")
     table.add_column("args", overflow="fold", max_width=42)
+    table.add_column("staleness", justify="center")
     table.add_column("fit", justify="center")
 
     ranked = best_pick_per_model(probe, entries)
+    reports = staleness_report_for_entries(entries)
     for key in sorted(entries):
         entry = entries[key]
         chosen = ranked[key]
+        rep = reports[key]
+        if rep.status == "stale":
+            stale_cell = "[red]stale[/red]"
+        elif rep.status == "fresh":
+            stale_cell = "[green]fresh[/green]"
+        else:
+            stale_cell = "[dim]?[/dim]"
         if chosen is not None:
             table.add_row(
                 key,
                 entry.model,
                 f"{chosen.format} / {chosen.backend}",
                 " ".join(chosen.launch_args),
+                stale_cell,
                 "[green]✓[/green]",
             )
         else:
             table.add_row(
-                key, entry.model, "no fit on this GPU", "—", "[red]✗[/red]"
+                key, entry.model, "no fit on this GPU", "—",
+                stale_cell, "[red]✗[/red]",
             )
     _console.print(table)
+
+
+def _render_staleness(entries: dict[str, ModelEntry]) -> None:
+    """Print a per-model staleness report (backs `zerorun staleness`)."""
+    _console.print(
+        Panel.fit(
+            Text.assemble(
+                ("staleness guard — ", "bold"),
+                ("registry pin drift alert (", "dim"),
+                ("fresh", "green"),
+                (" <= 6mo / ", "dim"),
+                ("stale", "red"),
+                (" > 6mo / ", "dim"),
+                ("?", "dim"),
+                (" unknown)", "dim"),
+            ),
+            title="zerorun staleness",
+            border_style="blue",
+        )
+    )
+    if not entries:
+        _console.print("[dim]no registry entries loaded.[/dim]")
+        return
+
+    table = Table(
+        title="staleness report", show_header=True, header_style="bold blue"
+    )
+    table.add_column("key", style="cyan", no_wrap=True)
+    table.add_column("model", overflow="fold")
+    table.add_column("pin", overflow="fold")
+    table.add_column("status", justify="center")
+    table.add_column("age", justify="right")
+    table.add_column("message", overflow="fold")
+
+    reports = staleness_report_for_entries(entries)
+    for key in sorted(entries):
+        rep = reports[key]
+        if rep.status == "stale":
+            status_cell = "[red]stale[/red]"
+        elif rep.status == "fresh":
+            status_cell = "[green]fresh[/green]"
+        else:
+            status_cell = "[dim]unknown[/dim]"
+        table.add_row(
+            key,
+            rep.model,
+            rep.pin or "—",
+            status_cell,
+            f"{rep.age_months}mo" if rep.age_months is not None else "—",
+            rep.message,
+        )
+    _console.print(table)
+    stale = [k for k, r in reports.items() if r.is_stale]
+    if stale:
+        _console.print(
+            f"[red]{len(stale)} stale:[/red] {', '.join(sorted(stale))} — "
+            "an upstream chat-template patch may postdate the pin; "
+            "check for a newer registry entry."
+        )
+    else:
+        _console.print("[green]no stale pins.[/green]")
 
 
 def _resolve_pick(
@@ -341,6 +419,11 @@ def main(
     if model == PROBE_VERB:
         probe = _resolve_probe(gpu_spec, no_probe)
         _render_probe(probe, entries)
+        raise typer.Exit(code=0)
+
+    # --- `zerorun staleness` (reserved verb → per-model staleness report) ----
+    if model == STALENESS_VERB:
+        _render_staleness(entries)
         raise typer.Exit(code=0)
 
     # --- `zerorun <model>` (default launch path) -----------------------------

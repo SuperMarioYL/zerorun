@@ -105,8 +105,13 @@ class TestGPUProbeDataclass(unittest.TestCase):
     def test_has_gpu_false_without_vram(self):
         self.assertFalse(GPUProbe(vram_gb=0, compute_cap=8.9).has_gpu)
 
-    def test_has_gpu_false_without_compute_cap(self):
-        self.assertFalse(GPUProbe(vram_gb=24, compute_cap=0).has_gpu)
+    def test_has_gpu_true_with_known_vram_only(self):
+        # v0.2 fix: a partial probe (VRAM known, compute cap unknown) now
+        # reports has_gpu=True so the picker can still score VRAM fit; the
+        # compute-cap floor is skipped when compute_cap == 0 (see picker tests).
+        p = GPUProbe(vram_gb=24, compute_cap=0.0)
+        self.assertTrue(p.has_gpu)
+        self.assertTrue(p.has_compute_cap is False)
 
     def test_default_is_no_gpu(self):
         p = GPUProbe()
@@ -181,13 +186,16 @@ class TestProbeGpuOrchestration(unittest.TestCase):
 
     def test_pynvml_vram_only_with_no_smi_returns_partial(self):
         # pynvml knew VRAM but no compute cap; nvidia-smi also unavailable.
+        # v0.2 fix: the partial probe now reports has_gpu=True (VRAM known) so
+        # the picker still scores VRAM fit; the compute-cap floor is skipped.
         pyn = GPUProbe(vram_gb=80, compute_cap=0.0, arch_family="unknown",
                        name="H100", source="pynvml")
         self._patch(pyn=pyn, smi=None)
         result = probe_gpu()
         self.assertEqual(result.vram_gb, 80)
         self.assertEqual(result.compute_cap, 0.0)
-        self.assertFalse(result.has_gpu)
+        self.assertTrue(result.has_gpu)
+        self.assertFalse(result.has_compute_cap)
 
     def test_smi_with_zero_compute_cap_not_used_as_complete(self):
         # A degenerate smi probe (cc=0) must not satisfy the merge path.

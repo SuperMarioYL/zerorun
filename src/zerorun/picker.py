@@ -161,19 +161,31 @@ def is_feasible(probe: GPUProbe, quant: QuantConfig) -> bool:
 
     Three hard gates, all must pass:
 
-    1. A usable NVIDIA GPU was detected (``probe.has_gpu``).
+    1. A usable NVIDIA GPU was detected (``probe.has_gpu`` — true whenever VRAM
+       is known, including the partial case where the compute cap is unknown).
     2. VRAM fits: ``probe.vram_gb >= quant.min_vram_gb``.
     3. Compute-capability floor met: ``probe.compute_cap >=
        quant.compute_cap_min`` (a 0 floor means "any arch" and always passes).
        This is the "arch match" — per ``probe.py``, the coarse arch families
        line up with the registry's ``compute_cap_min`` floors, so the arch
        check *is* the numeric floor check.
+
+    v0.2 graceful-degradation: when ``probe.compute_cap == 0`` (unknown — the
+    partial probe where pynvml resolved VRAM but not the compute capability and
+    nvidia-smi was unavailable), the compute-cap floor is **skipped** (treated
+    as "cannot disqualify on arch" rather than failing every variant), so the
+    picker still scores VRAM fit. This matches the documented intent of the
+    partial probe; the VRAM gate still applies.
     """
     if not probe.has_gpu:
         return False
     if probe.vram_gb < quant.min_vram_gb:
         return False
-    if quant.compute_cap_min > 0 and probe.compute_cap < quant.compute_cap_min:
+    if (
+        quant.compute_cap_min > 0
+        and probe.compute_cap > 0
+        and probe.compute_cap < quant.compute_cap_min
+    ):
         return False
     return True
 
@@ -201,7 +213,9 @@ def feasibility_reasons(probe: GPUProbe, quant: QuantConfig) -> list[str]:
 
     Empty reasons list means "feasible, no blockers" (the caller adds the score
     breakdown). Each blocker names the exact shortfall so the CLI can say "you
-    are 16 GB short" rather than just "won't fit".
+    are 16 GB short" rather than just "won't fit". When the probe's compute
+    capability is unknown (``0.0``), the arch floor is not enforced and no
+    "arch short" reason is emitted (the partial-probe graceful-degradation path).
     """
     reasons: list[str] = []
     if not probe.has_gpu:
@@ -213,7 +227,11 @@ def feasibility_reasons(probe: GPUProbe, quant: QuantConfig) -> list[str]:
             f"VRAM short: have {probe.vram_gb:.1f} GB, need {quant.min_vram_gb:.0f} GB "
             f"(-{short:.1f} GB)"
         )
-    if quant.compute_cap_min > 0 and probe.compute_cap < quant.compute_cap_min:
+    if (
+        quant.compute_cap_min > 0
+        and probe.compute_cap > 0
+        and probe.compute_cap < quant.compute_cap_min
+    ):
         reasons.append(
             f"arch short: compute-cap {probe.compute_cap} < required "
             f"{quant.compute_cap_min} ({_arch_label(quant.compute_cap_min)})"
@@ -227,7 +245,9 @@ def _infeasible_closeness(probe: GPUProbe, quant: QuantConfig) -> float:
     Higher (less negative) = closer to runnable, so the infeasible block sorts
     with the closest miss first — the user sees the variant they *almost* meet
     before the one that is hopelessly out of reach. Normalized so VRAM and
-    compute-cap shortfalls are on comparable scales.
+    compute-cap shortfalls are on comparable scales. When the probe's compute
+    cap is unknown (``0.0``), the arch shortfall is not counted (the
+    partial-probe graceful-degradation path does not enforce the arch floor).
     """
     if not probe.has_gpu:
         return -1.0
@@ -235,7 +255,11 @@ def _infeasible_closeness(probe: GPUProbe, quant: QuantConfig) -> float:
     if probe.vram_gb < quant.min_vram_gb and quant.min_vram_gb > 0:
         # e.g. 16 GB short on a 32 GB floor -> -0.5
         score += (probe.vram_gb - quant.min_vram_gb) / quant.min_vram_gb
-    if quant.compute_cap_min > 0 and probe.compute_cap < quant.compute_cap_min:
+    if (
+        quant.compute_cap_min > 0
+        and probe.compute_cap > 0
+        and probe.compute_cap < quant.compute_cap_min
+    ):
         score += probe.compute_cap - quant.compute_cap_min
     return score
 

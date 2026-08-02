@@ -501,5 +501,71 @@ class TestShippedRegistry(unittest.TestCase):
                               f"{key} vllm override should be infeasible on 4090")
 
 
+class TestPartialProbeFeasibility(unittest.TestCase):
+    """v0.2 fix-partial-probe-has-gpu-invariant: a probe with known VRAM but
+    unknown compute cap (compute_cap==0) must still score VRAM fit, skipping
+    the compute-cap floor rather than reporting 'no NVIDIA GPU detected'."""
+
+    def _q(self, fmt, backend, vram, cc=0.0, args=()):
+        return QuantConfig(format=fmt, backend=backend, min_vram_gb=vram,
+                           compute_cap_min=cc, args=tuple(args))
+
+    def _entry(self, quants):
+        return ModelEntry(model="m", hf_id="org/m", quants=tuple(quants),
+                          chat_template_ref="t", registry_key="m")
+
+    def test_partial_probe_has_gpu_true(self):
+        partial = GPUProbe(vram_gb=24, compute_cap=0.0, arch_family="unknown",
+                           name="RTX", source="pynvml")
+        self.assertTrue(partial.has_gpu)
+        self.assertFalse(partial.has_compute_cap)
+
+    def test_partial_probe_scores_vram_fitting_variant(self):
+        # 24GB card, unknown compute cap; a 12GB quant with a 7.5 floor should
+        # still be feasible (the arch floor is skipped when cc==0).
+        partial = GPUProbe(vram_gb=24, compute_cap=0.0, arch_family="unknown",
+                           name="RTX", source="pynvml")
+        entry = self._entry([self._q("Q4_K_M", "llama.cpp", 12, cc=7.5)])
+        chosen = best_pick(partial, entry)
+        self.assertIsNotNone(chosen)
+        self.assertTrue(chosen.feasible)
+        self.assertEqual(chosen.quant.format, "Q4_K_M")
+
+    def test_partial_probe_rejects_vram_overflow(self):
+        # Unknown compute cap does NOT waive the VRAM floor.
+        partial = GPUProbe(vram_gb=8, compute_cap=0.0, arch_family="unknown",
+                           name="RTX", source="pynvml")
+        entry = self._entry([self._q("Q4_K_M", "llama.cpp", 12, cc=7.5)])
+        self.assertIsNone(best_pick(partial, entry))
+        # The infeasible reason names the VRAM short, NOT 'no NVIDIA GPU detected'.
+        ranked = pick(partial, entry)
+        self.assertTrue(all(not r.feasible for r in ranked))
+        reasons = ranked[0].reasons
+        self.assertFalse(any("no NVIDIA GPU detected" in r for r in reasons),
+                         f"partial probe must not say 'no GPU': {reasons}")
+        self.assertTrue(any("VRAM short" in r for r in reasons),
+                        f"expected a VRAM-short reason: {reasons}")
+
+    def test_partial_probe_real_registry_picks_consumer_model(self):
+        # Over the real registry, a 16GB partial probe (cc unknown) should be
+        # able to pick qwen-3.6's Q4_K_M (12GB floor) but not the heavier MoEs.
+        entries = load_registry_dir(ROOT / "registry")
+        partial = GPUProbe(vram_gb=16, compute_cap=0.0, arch_family="unknown",
+                           name="RTX", source="pynvml")
+        ranked = best_pick_per_model(partial, entries)
+        self.assertIsNotNone(ranked["qwen-3.6"])
+        self.assertIsNone(ranked["deepseek-v4"])
+        self.assertIsNone(ranked["glm-5.2"])
+        self.assertIsNone(ranked["kimi-k3"])
+
+    def test_zeroed_probe_still_all_infeasible(self):
+        # The --no-probe / no-GPU zeroed probe (vram==0) is unaffected: still
+        # has_gpu=False, every variant infeasible.
+        zeroed = GPUProbe(vram_gb=0, compute_cap=0.0)
+        self.assertFalse(zeroed.has_gpu)
+        entry = self._entry([self._q("Q4_K_M", "llama.cpp", 12, cc=7.5)])
+        self.assertIsNone(best_pick(zeroed, entry))
+
+
 if __name__ == "__main__":
     unittest.main()

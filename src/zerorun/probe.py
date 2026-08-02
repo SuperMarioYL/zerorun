@@ -34,11 +34,34 @@ class GPUProbe:
 
     @property
     def has_gpu(self) -> bool:
-        """True only when a usable NVIDIA GPU (VRAM + compute cap) was found."""
-        return self.vram_gb > 0 and self.compute_cap > 0
+        """True when a usable NVIDIA GPU was detected (VRAM known).
+
+        v0.2 fix: decoupled from ``compute_cap``. A *partial* probe (VRAM known,
+        compute cap unknown — pynvml resolved the card but not its compute
+        capability and nvidia-smi was unavailable) now reports ``has_gpu=True``
+        so the picker can still score VRAM fit; :func:`zerorun.picker.is_feasible`
+        skips the compute-cap floor when ``compute_cap == 0``. The zeroed
+        ``source="none"`` probe (no card at all) stays ``False`` because
+        ``vram_gb == 0``.
+        """
+        return self.vram_gb > 0
+
+    @property
+    def has_compute_cap(self) -> bool:
+        """True when the compute capability is known (not the partial case)."""
+        return self.compute_cap > 0
 
     def meets_compute_cap(self, floor: float) -> bool:
-        """Whether this GPU clears a quant's ``compute_cap_min`` floor."""
+        """Whether this GPU clears a quant's ``compute_cap_min`` floor.
+
+        Returns ``True`` when the compute capability is unknown (``0.0``) —
+        the partial-probe graceful-degradation path: an unknown arch is treated
+        as "no floor enforced" rather than failing every variant, matching the
+        documented intent that the picker still scores VRAM fit without a known
+        compute cap.
+        """
+        if self.compute_cap <= 0:
+            return True
         return self.compute_cap >= float(floor)
 
 
@@ -236,7 +259,7 @@ def probe_gpu() -> GPUProbe:
             source="pynvml+nvidia-smi",
         )
 
-    if smi is not None and smi.has_gpu:
+    if smi is not None and smi.has_gpu and smi.has_compute_cap:
         return smi
 
     # pynvml gave at least VRAM; keep the partial so the picker can still
