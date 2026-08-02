@@ -7,16 +7,16 @@
   "accent": ["#e6a144"],
   "hero": {
     "eyebrow": {
-      "zh": "本地跑前沿中文开源大模型 · 换模型不再重配",
-      "en": "Run frontier Chinese open-source models locally · no reconfig per swap"
+      "zh": "本地跑前沿中文开源大模型 · 换模型不再重配 · 配置过期会提醒",
+      "en": "Run frontier Chinese open-source models locally · no reconfig per swap · warns when a config goes stale"
     },
     "headline": {
-      "zh": "换个模型，要重配 5 小时？\n一条命令，选对、跑起。",
-      "en": "5 hours to reconfigure every model swap?\nOne command picks right and runs it."
+      "zh": "换个模型，要重配 5 小时？\n一条命令，选对、跑起，过期还会提醒你。",
+      "en": "5 hours to reconfigure every model swap?\nOne command picks right, runs it, and flags when it drifts."
     },
     "sub": {
-      "zh": "每换一个前沿中文开源大模型，你都要重解同一道题：量化、后端、对话模板怎么搭——手写一遍，上游一补丁就静默过时。zerorun 看清你的显卡，替你一次配对，直接拉起。",
-      "en": "Every swap to a new frontier Chinese open-source model reopens the same puzzle: which quantization, backend, and chat template fit — hand-configured once, silently stale after the next upstream patch. zerorun reads your GPU, picks the match, and just runs it."
+      "zh": "每换一个前沿中文开源大模型，你都要重解同一道题：量化、后端、对话模板怎么搭——手写一遍，上游一补丁就静默过时。zerorun 看清你的显卡，替你一次配对直接拉起，并给每份配置打上时间戳：过时就提醒你该查上游补丁了。",
+      "en": "Every swap to a new frontier Chinese open-source model reopens the same puzzle: which quantization, backend, and chat template fit — hand-configured once, silently stale after the next upstream patch. zerorun reads your GPU, picks the match, runs it, and time-stamps each config so it tells you when a saved setup is due for an upstream check."
     },
     "command": "zerorun deepseek-v4"
   },
@@ -46,12 +46,12 @@
       "chips": ["› 自动拉起后端", "› 本地端点即连即用", "› 不用自己拼参数"]
     },
     {
-      "title": { "zh": "配置是数据，不是代码", "en": "Configs are data, not code" },
+      "title": { "zh": "知道一份配置什么时候该刷新", "en": "Knows when a saved config is due for a refresh" },
       "body": {
-        "zh": "每个模型的配置是版本化、硬件感知的数据条目——加一个量化下限或修一个对话模板引用只需改一行，无需碰代码；社区可提 PR，你也可以 fork 一份自己的配置表。",
-        "en": "Each model's config is a versioned, hardware-aware data entry — adding a quant floor or fixing a chat-template reference is a one-line change, no code touched; the community can PR, and you can fork your own config table."
+        "zh": "每份模型配置都打上\"验证于何月\"的时间戳；超过保鲜期，zerorun 会标红提醒——上游对话模板往往发布时就有缺陷、之后才补丁，存下来的配置可能已经悄悄过时。配置表是数据、社区可提 PR，刷新一个时间戳或加一个新模型只需改一行。",
+        "en": "Every model config carries a \"verified this month\" time-stamp; past its freshness window zerorun flags it red — upstream chat templates often ship broken and get patched later, so a saved config can quietly drift. The config table is data the community can PR, so refreshing a stamp or adding a model is a one-line change."
       },
-      "chips": ["› 一行改配置不碰代码", "› 社区可 PR", "› 可 fork 自己的表"]
+      "chips": ["› 过期标红提醒", "› 每份配置带时间戳", "› 一行 PR 刷新或加模型"]
     }
   ],
   "scene": {
@@ -64,8 +64,8 @@
       "en": "One command to run a frontier Chinese open-source model"
     },
     "sub": {
-      "zh": "uv tool install zerorun，然后 zerorun deepseek-v4——首跑会下载权重，是等待不是操作。",
-      "en": "uv tool install zerorun, then zerorun deepseek-v4 — first run downloads weights, a wait not effort."
+      "zh": "uv tool install zerorun，然后 zerorun deepseek-v4——首跑会下载权重，是等待不是操作。zerorun staleness 查看哪些配置该刷新。",
+      "en": "uv tool install zerorun, then zerorun deepseek-v4 — first run downloads weights, a wait not effort. Run zerorun staleness to see which configs are due for a refresh."
     },
     "button": {
       "zh": "开始使用",
@@ -74,8 +74,8 @@
   },
   "footer": {
     "tag": {
-      "zh": "5h → 1 命令 · 看清你的显卡，为前沿中文开源大模型自动选对配置并直接拉起 · MIT 开源",
-      "en": "5h → 1 command · reads your GPU, picks the right config for frontier Chinese open-source models and just runs it · MIT open source"
+      "zh": "5h → 1 命令 · 看清你的显卡，为前沿中文开源大模型自动选对配置并直接拉起 · Apache-2.0 开源",
+      "en": "5h → 1 command · reads your GPU, picks the right config for frontier Chinese open-source models and just runs it · Apache-2.0 open source"
     }
   }
 }
