@@ -109,11 +109,18 @@ class QuantConfig:
             )
 
         args_raw = raw.get("args", [])
+        args_msg = f"quant '{fmt}' ({backend}) 'args' must be a list of strings"
         if not isinstance(args_raw, list):
-            raise RegistryError(
-                f"quant '{fmt}' ({backend}) 'args' must be a list of strings"
-            )
-        args = tuple(str(a) for a in args_raw)
+            raise RegistryError(args_msg)
+        # Per-element type check: a stray null / int / nested value must be
+        # rejected (not str()-coerced) so a mis-typed community PR is caught
+        # by scripts/validate_registry.py instead of shipping a broken argv.
+        checked: list[str] = []
+        for a in args_raw:
+            if not isinstance(a, str):
+                raise RegistryError(args_msg)
+            checked.append(a)
+        args = tuple(checked)
 
         return cls(
             format=fmt,

@@ -7,6 +7,7 @@ and the real shipped hero entry (registry/deepseek-v4.yaml).
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 import tempfile
 import unittest
@@ -114,6 +115,36 @@ class TestQuantConfig(unittest.TestCase):
         )
         with self.assertRaises(Exception):
             q.format = "Q8"  # type: ignore[misc]
+
+
+class TestArgsElementTypeCheck(unittest.TestCase):
+    """v0.3.0 fix-registry-args-str-coercion: a non-string ``args`` element
+    must be rejected (not silently str()-coerced), so a mis-typed community PR
+    is caught by scripts/validate_registry.py instead of shipping a broken
+    argv (e.g. a literal "None" token forwarded to vllm/llama-server)."""
+
+    def _raw(self, args):
+        return {"format": "X", "backend": "vllm", "min_vram_gb": 1, "args": args}
+
+    def test_none_element_rejected(self):
+        with self.assertRaises(RegistryError):
+            QuantConfig.from_dict(self._raw([None]))
+
+    def test_int_element_rejected(self):
+        with self.assertRaises(RegistryError):
+            QuantConfig.from_dict(self._raw(["--flag", 123]))
+
+    def test_nested_list_element_rejected(self):
+        with self.assertRaises(RegistryError):
+            QuantConfig.from_dict(self._raw([["nested"]]))
+
+    def test_dict_element_rejected(self):
+        with self.assertRaises(RegistryError):
+            QuantConfig.from_dict(self._raw([{"k": "v"}]))
+
+    def test_clean_string_list_passes(self):
+        q = QuantConfig.from_dict(self._raw(["--kv-cache-dtype", "fp8"]))
+        self.assertEqual(q.args, ("--kv-cache-dtype", "fp8"))
 
 
 class TestModelEntry(unittest.TestCase):
@@ -317,6 +348,43 @@ class TestShippedHeroEntry(unittest.TestCase):
         # shipped registry/ directory (not raise / not point into the void).
         resolved = default_registry_dir()
         self.assertTrue(resolved.name == "registry")
+
+
+class TestValidateRegistryRejectsBadArgs(unittest.TestCase):
+    """v0.3.0 fix-registry-args-str-coercion acceptance: the m5 validator
+    (scripts/validate_registry.py) must exit non-zero on an entry whose
+    ``args`` carries a non-string element — the community-PR gate the
+    str()-coercion previously let through."""
+
+    _BAD_YAML = (
+        "model: m\n"
+        "hf_id: org/m\n"
+        "quants:\n"
+        "  - format: Q4_K_M\n"
+        "    backend: llama.cpp\n"
+        "    min_vram_gb: 12\n"
+        "    args: [\"-c\", null, \"--n-gpu-layers\", \"999\"]\n"
+        "chat_template_ref: m\n"
+    )
+
+    @staticmethod
+    def _load_validator():
+        spec = importlib.util.spec_from_file_location(
+            "zerorun_test_validate_registry",
+            ROOT / "scripts" / "validate_registry.py",
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_rejects_non_string_arg(self):
+        vr = self._load_validator()
+        with tempfile.TemporaryDirectory() as td:
+            (Path(td) / "bad-args.yaml").write_text(
+                self._BAD_YAML, encoding="utf-8"
+            )
+            rc = vr.main(["--registry-dir", td])
+        self.assertEqual(rc, 1)
 
 
 if __name__ == "__main__":

@@ -25,7 +25,8 @@ Design notes
   uses ``localhost`` so the user can copy-paste it.
 * **No weight management.** The launcher never downloads weights itself — it
   delegates to the backend's own HF fetch (``vllm serve <hf_id>`` /
-  ``llama-server -m hf://<hf_id>``), per the plan's explicit scope boundary.
+  ``llama-server --hf-repo <hf_id>:<format>``), per the plan's explicit scope
+  boundary.
 """
 
 from __future__ import annotations
@@ -102,10 +103,12 @@ def build_argv(
     * **vllm** → ``["vllm", "serve", <hf_id>, *args, "--host", <host>,
       "--port", <port>]`` (``vllm serve`` is the modern OpenAI-compatible
       serving subcommand; vLLM downloads weights from the HF id).
-    * **llama.cpp** → ``["llama-server", "-m", "hf://<hf_id>", *args,
-      "--host", <host>, "--port", <port>]`` (the ``hf://`` scheme makes
-      llama-server fetch the repo's weights from HF; the registry's args
-      already carry the per-variant ``-c`` / ``--n-gpu-layers`` flags).
+    * **llama.cpp** → ``["llama-server", "--hf-repo", "<hf_id>:<format>",
+      *args, "--host", <host>, "--port", <port>]`` (``--hf-repo`` makes
+      llama-server fetch the repo's weights from HF, with the ``:<format>``
+      suffix selecting the matching GGUF by the pick's own registry format
+      label — Q4_K_M / Q8_0; the registry's args already carry the
+      per-variant ``-c`` / ``--n-gpu-layers`` flags).
     """
     bin_name = backend_binary(pick.backend)
     chosen_port = port if port is not None else default_port(pick.backend)
@@ -118,8 +121,9 @@ def build_argv(
         argv.extend(["--host", host, "--port", port_str])
         return argv
 
-    # llama.cpp — weights via the hf:// scheme so llama-server auto-fetches.
-    argv = [bin_name, "-m", f"hf://{pick.hf_id}"]
+    # llama.cpp — --hf-repo fetches the matching GGUF from HF; the :format
+    # suffix selects the quant by the pick's own registry format label.
+    argv = [bin_name, "--hf-repo", f"{pick.hf_id}:{pick.format}"]
     argv.extend(base_args)
     argv.extend(["--host", host, "--port", port_str])
     return argv

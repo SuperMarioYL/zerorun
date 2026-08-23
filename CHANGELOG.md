@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-23
+
+A clean bugfix release — two verified correctness fixes to the dominant launch
+path and the m5 registry validator. No stack, audience, distribution, or
+`target_files` changes; no feature milestone. Built directly into the existing
+`workspace/builds/zerorun--zerorun8` (iteration commit, not a re-scaffold).
+
+### Fixed
+- **fix-llamacpp-hf-uri-launch** (HIGH, `src/zerorun/launcher.py:122`). The
+  llama.cpp launch argv used `[llama-server, "-m", "hf://<hf_id>"]`, but
+  llama-server's `-m`/`--model` expects a *local file path* and the `hf://`
+  scheme is unsupported — so every llama.cpp pick (the dominant path: all 4
+  hero models on A100-80G, deepseek-v4 + glm-5.2 on H100-80G, and qwen-3.6 on
+  every consumer card including the showcase RTX 4090) exited non-zero before
+  the OpenAI-compatible endpoint came up. `build_argv` now emits
+  `["llama-server", "--hf-repo", "<hf_id>:<format>"]`, where `--hf-repo`
+  fetches the matching GGUF from Hugging Face and the `:<format>` suffix
+  selects the quant (Q4_K_M / Q8_0) by the pick's own registry `format` label
+  — no schema change. The vLLM path (`vllm serve <hf_id>`, already correct)
+  is unchanged. `tests/test_launcher.py` asserts `--hf-repo <hf_id>:<format>`
+  and the absence of any `-m`/`hf://` value.
+- **fix-registry-args-str-coercion** (MED, `src/zerorun/registry/schema.py:111-116`).
+  `QuantConfig.from_dict` validated `args` only as a list, then coerced every
+  element via `str()` — so `args=[None]`/`[123]`/`[['nested']]`/`[{'k':'v'}]`
+  all passed despite the "must be a list of strings" message, undermining the
+  m5 community-PR validator contract (a stray null would pass CI and ship a
+  broken argv such as a literal `"None"` token forwarded to vllm/llama-server).
+  `from_dict` now type-checks each element and raises `RegistryError` for any
+  non-string, reusing the existing "list of strings" message.
+  `scripts/validate_registry.py` therefore rejects such an entry (exit 1).
+  `tests/test_schema.py` covers `args=[None]`/`[123]`/`[['nested']]`/`[{'k':'v'}]`
+  rejection plus a clean string list passing, and an integration test verifies
+  `validate_registry.py` exits non-zero on a non-string `args` entry.
+
 ## [0.2.0] - 2026-08-03
 
 ### Added
