@@ -3,6 +3,7 @@
   "name": "zerorun",
   "github": "https://github.com/SuperMarioYL/zerorun",
   "host": "zerorun.lei6393.com",
+  "content_version": "0.4.0",
   "lang": { "primary": "zh", "toggle": true },
   "accent": ["#e6a144"],
   "hero": {

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-02
+
+A clean bugfix release — a single verified correctness fix to the in-source
+version surface. No stack, audience, distribution, or `target_files` changes;
+no feature milestone. Built directly into the existing
+`workspace/builds/zerorun--zerorun8` (iteration commit, not a re-scaffold).
+
+### Fixed
+- **fix-init-version-drift** (MED-HIGH, `src/zerorun/__init__.py:7`). The
+  `__version__` attribute was `0.1.0` — two minor versions behind the
+  canonical `VERSION` file (0.3.0) and `pyproject.toml` (0.3.0) — because the
+  v0.2.0 and v0.3.0 release bumps each touched only `VERSION` +
+  `pyproject.toml` + `CHANGELOG.md` and never propagated to
+  `__init__.py.__version__`, so `import zerorun; zerorun.__version__` reported
+  `0.1.0` against a v0.3.0 release (the package mis-reports its own version).
+  `__version__` is now `0.4.0`, and `tests/test_version.py` is a lockstep
+  regression asserting the `VERSION` file, the `pyproject.toml` `version`
+  field, and `zerorun.__version__` all agree — so the next bump cannot silently
+  leave `__version__` stale (the exact recurrence that produced this drift
+  across v0.2.0 and v0.3.0).
+
 ## [0.3.0] - 2026-08-23
 
 A clean bugfix release — two verified correctness fixes to the dominant launch
