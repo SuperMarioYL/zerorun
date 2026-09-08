@@ -211,5 +211,6 @@
         "code": "zerorun --list --gpu \"24:8.9\"\nzerorun <registered-alias> --dry-run --gpu \"24:8.9\"\n# Use a validated registry entry and installed backend for real execution:\nzerorun <registered-alias>"
       }
     ]
-  }
+  },
+  "content_version": "0.4.0"
 }
