@@ -1,0 +1,78 @@
+{
+  "name": "zerorun",
+  "tagline": "Inspect a model launch plan before running it.",
+  "architecture": {
+    "title": "How ZeroRun works",
+    "nodes": [
+      {
+        "title": "GPU metadata",
+        "detail": "src/zerorun/probe.py"
+      },
+      {
+        "title": "Model registry",
+        "detail": "registry/schema.py"
+      },
+      {
+        "title": "Heuristic picker",
+        "detail": "src/zerorun/picker.py"
+      },
+      {
+        "title": "Launch arguments",
+        "detail": "src/zerorun/launcher.py"
+      }
+    ],
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        2,
+        3
+      ]
+    ]
+  },
+  "process": {
+    "title": "From input to a useful result",
+    "steps": [
+      {
+        "title": "Read requirements",
+        "detail": "Two synthetic variants"
+      },
+      {
+        "title": "Check declared floors",
+        "detail": "24GB simulated capacity"
+      },
+      {
+        "title": "Select feasible option",
+        "detail": "Q4_K_M demo variant"
+      }
+    ],
+    "result": "The 16GB-floor variant is selected and the 32GB-floor variant is reported infeasible under the synthetic input."
+  },
+  "integrations": {
+    "title": "Supported input and output routes",
+    "items": [
+      {
+        "title": "GPU probe / simulation",
+        "detail": "Hardware metadata input"
+      },
+      {
+        "title": "Registry YAML",
+        "detail": "Variants and requirements"
+      },
+      {
+        "title": "vLLM / llama.cpp",
+        "detail": "Supported launch backends"
+      },
+      {
+        "title": "Dry-run",
+        "detail": "Inspect selection before launch"
+      }
+    ]
+  }
+}

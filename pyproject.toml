@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "zerorun"
 version = "0.4.0"
-description = "One-command launcher that probes your GPU, picks the best quant + backend + chat template for frontier Chinese open-weight MoEs, and just runs it."
+description = "Rank registered model quantization/backend configurations against GPU metadata and inspect or launch the selected command."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.12"

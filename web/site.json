@@ -1,82 +1,215 @@
 {
-  "schema": 1,
+  "schema": 3,
   "name": "zerorun",
   "github": "https://github.com/SuperMarioYL/zerorun",
   "host": "zerorun.lei6393.com",
-  "content_version": "0.4.0",
-  "lang": { "primary": "zh", "toggle": true },
-  "accent": ["#e6a144"],
+  "palette": "auto",
+  "lang": {
+    "primary": "en",
+    "toggle": true
+  },
+  "meta": {
+    "visual_style": "neon-particle",
+    "demo_source": "docs/demo-results.json"
+  },
   "hero": {
-    "eyebrow": {
-      "zh": "本地跑前沿中文开源大模型 · 换模型不再重配 · 配置过期会提醒",
-      "en": "Run frontier Chinese open-source models locally · no reconfig per swap · warns when a config goes stale"
-    },
     "headline": {
-      "zh": "换个模型，要重配 5 小时？\n一条命令，选对、跑起，过期还会提醒你。",
-      "en": "5 hours to reconfigure every model swap?\nOne command picks right, runs it, and flags when it drifts."
+      "en": "Inspect a model launch plan before running it.",
+      "zh": "运行模型前先检查启动计划。"
     },
     "sub": {
-      "zh": "每换一个前沿中文开源大模型，你都要重解同一道题：量化、后端、对话模板怎么搭——手写一遍，上游一补丁就静默过时。zerorun 看清你的显卡，替你一次配对直接拉起，并给每份配置打上时间戳：过时就提醒你该查上游补丁了。",
-      "en": "Every swap to a new frontier Chinese open-source model reopens the same puzzle: which quantization, backend, and chat template fit — hand-configured once, silently stale after the next upstream patch. zerorun reads your GPU, picks the match, runs it, and time-stamps each config so it tells you when a saved setup is due for an upstream check."
+      "en": "ZeroRun compares GPU metadata with a versioned configuration registry, ranks feasible variants by a declared heuristic, and exposes the selected launch arguments.",
+      "zh": "ZeroRun 将 GPU 元数据与版本化配置登记表比较，按声明启发式排序可行变体，并展示选中的启动参数。"
     },
-    "command": "zerorun deepseek-v4"
+    "href": "#quickstart"
   },
   "advantages": [
     {
-      "title": { "zh": "看清你的显卡能跑什么", "en": "See what your card can actually run" },
-      "body": {
-        "zh": "自动读取显存与算力，告诉你哪个模型放得下、哪种配置跑得动；没 NVIDIA 卡也能模拟一张大卡预演挑选结果。",
-        "en": "Reads your VRAM and compute, tells you which model fits and which config runs; no NVIDIA card needed — simulate a big card to preview the pick."
+      "title": {
+        "en": "Explain feasibility",
+        "zh": "解释可行性"
       },
-      "chips": ["› 读显存与算力", "› 没卡也能模拟预演", "› 模拟结果有标注"]
+      "body": {
+        "en": "Rejected variants include their requirement shortfall.",
+        "zh": "被拒绝变体包含需求差额。"
+      }
     },
     {
-      "title": { "zh": "为什么这么选，说得清", "en": "Explains why it picks what it picks" },
-      "body": {
-        "zh": "挑选有据可查：精度保留为主轴，后端吞吐与显存余量只做破平；跑不了的配置不静默失败，会告诉你离放得下还差多少——是\"差 16 GB\"，不是一个干巴巴的\"跑不了\"。",
-        "en": "The pick is auditable: accuracy retention leads, backend throughput and VRAM headroom only break ties; infeasible configs don't fail silently — they tell you how far off, \"short by 16 GB\", not a bare \"won't run\"."
+      "title": {
+        "en": "Version the configuration",
+        "zh": "版本化配置"
       },
-      "chips": ["› 精度为主轴", "› 每项挑选可查", "› 跑不了列差距"]
+      "body": {
+        "en": "Model and backend choices live in YAML.",
+        "zh": "模型与后端选择保存在 YAML。"
+      }
     },
     {
-      "title": { "zh": "一条命令拉起，给你一个能用的端点", "en": "One command launches it, hands you a working endpoint" },
-      "body": {
-        "zh": "选好配置就自动拉起推理后端，流式输出日志，打印一个本地端点——任意客户端直连，你不用自己拼启动参数、不用搭服务。",
-        "en": "Once the config is picked, it launches the inference backend, streams logs, and prints a local endpoint — any client connects directly; you don't assemble launch flags or stand up services."
+      "title": {
+        "en": "Inspect before launch",
+        "zh": "启动前检查"
       },
-      "chips": ["› 自动拉起后端", "› 本地端点即连即用", "› 不用自己拼参数"]
+      "body": {
+        "en": "Dry-run exposes the plan without starting inference.",
+        "zh": "dry-run 展示计划而不启动推理。"
+      }
+    }
+  ],
+  "demo": {
+    "title": {
+      "en": "Run it on a complete example",
+      "zh": "运行完整示例"
+    },
+    "note": {
+      "en": "Use a simulated 24GB GPU with two explicit demo variants requiring 16GB and 32GB, then inspect the picker’s result.",
+      "zh": "对需要 16GB 与 32GB 的两个明确演示变体使用模拟 24GB GPU，检查 picker 结果。"
+    },
+    "source": "https://github.com/SuperMarioYL/zerorun/blob/main/docs/demo-results.json",
+    "steps": [
+      {
+        "label": "Recorded run",
+        "body": "Pure configuration selection for a synthetic model entry and a simulated 24GB GPU. No model files, real hardware feasibility, backend launch or performance are tested.",
+        "command": ".venv/bin/python examples/presentation-demo.py",
+        "output": "{\"quant\": \"Q4_K_M\", \"feasible\": true, \"reasons\": [\"score: accuracy 0.80 + backend 0.05 + vram-safety 0.020 = 0.870\"]}\n{\"quant\": \"Q8_0\", \"feasible\": false, \"reasons\": [\"VRAM short: have 24.0 GB, need 32 GB (-8.0 GB)\", \"infeasible \\u2014 listed for diagnostics only\"]}\nselected: Q4_K_M",
+        "image": "/assets/presentation/demo-0-light.svg",
+        "imageDark": "/assets/presentation/demo-0-dark.svg"
+      }
+    ]
+  },
+  "quickstart": {
+    "title": {
+      "en": "Try it locally",
+      "zh": "本地上手"
+    },
+    "body": {
+      "en": "Use a simulated 24GB GPU with two explicit demo variants requiring 16GB and 32GB, then inspect the picker’s result.",
+      "zh": "对需要 16GB 与 32GB 的两个明确演示变体使用模拟 24GB GPU，检查 picker 结果。"
+    },
+    "steps": [
+      {
+        "title": {
+          "en": "Install from source",
+          "zh": "从源码安装"
+        },
+        "code": "git clone https://github.com/SuperMarioYL/zerorun.git\ncd zerorun\nuv venv .venv\nuv pip install --python .venv/bin/python -e .\nsource .venv/bin/activate"
+      },
+      {
+        "title": {
+          "en": "Run the included example",
+          "zh": "运行随仓示例"
+        },
+        "code": ".venv/bin/python examples/presentation-demo.py"
+      }
+    ]
+  },
+  "limitations": [
+    {
+      "en": "Registry feasibility is based on declared floors, not a measured allocation or runtime acceptance test. Context, caches and backend versions can change requirements.",
+      "zh": "登记表可行性基于声明下限，不是实测分配或运行验收；上下文、缓存和后端版本会改变需求。"
     },
     {
-      "title": { "zh": "知道一份配置什么时候该刷新", "en": "Knows when a saved config is due for a refresh" },
-      "body": {
-        "zh": "每份模型配置都打上\"验证于何月\"的时间戳；超过保鲜期，zerorun 会标红提醒——上游对话模板往往发布时就有缺陷、之后才补丁，存下来的配置可能已经悄悄过时。配置表是数据、社区可提 PR，刷新一个时间戳或加一个新模型只需改一行。",
-        "en": "Every model config carries a \"verified this month\" time-stamp; past its freshness window zerorun flags it red — upstream chat templates often ship broken and get patched later, so a saved config can quietly drift. The config table is data the community can PR, so refreshing a stamp or adding a model is a one-line change."
-      },
-      "chips": ["› 过期标红提醒", "› 每份配置带时间戳", "› 一行 PR 刷新或加模型"]
+      "en": "Ranking coefficients are heuristics, not measured accuracy or throughput. Verify model IDs, artifacts and chat templates before a real launch.",
+      "zh": "排序系数是启发式，不是实测精度或吞吐；真实启动前应核实模型 ID、产物和聊天模板。"
+    },
+    {
+      "en": "The demo uses a synthetic model entry and simulated GPU. It downloads no weights and starts no backend.",
+      "zh": "示例使用合成模型条目和模拟 GPU，不下载权重或启动后端。"
     }
   ],
   "scene": {
-    "kind": "hub-nodes",
-    "nodes": ["DeepSeek V4", "Qwen 3.6", "GLM 5.2", "Kimi K3"]
+    "kind": "neon-graph",
+    "fallback": "/assets/presentation/scene-dark.svg",
+    "fallbackLight": "/assets/presentation/scene-light.svg"
   },
-  "cta": {
-    "headline": {
-      "zh": "一条命令，跑起前沿中文开源大模型",
-      "en": "One command to run a frontier Chinese open-source model"
+  "story": {
+    "intro": {
+      "title": {
+        "en": "A concrete task",
+        "zh": "从实际任务出发"
+      },
+      "body": {
+        "en": "A model launch requires choosing a weight format, backend and matching arguments. Keeping those choices in a registry makes the decision inspectable and gives a dry-run path before a download or launch.",
+        "zh": "模型启动需要选择权重格式、后端和匹配参数。将选择保存在登记表中，便于检查决策，并可在下载或启动前 dry-run。"
+      }
     },
-    "sub": {
-      "zh": "uv tool install zerorun，然后 zerorun deepseek-v4——首跑会下载权重，是等待不是操作。zerorun staleness 查看哪些配置该刷新。",
-      "en": "uv tool install zerorun, then zerorun deepseek-v4 — first run downloads weights, a wait not effort. Run zerorun staleness to see which configs are due for a refresh."
-    },
-    "button": {
-      "zh": "开始使用",
-      "en": "Get started"
-    }
-  },
-  "footer": {
-    "tag": {
-      "zh": "5h → 1 命令 · 看清你的显卡，为前沿中文开源大模型自动选对配置并直接拉起 · Apache-2.0 开源",
-      "en": "5h → 1 command · reads your GPU, picks the right config for frontier Chinese open-source models and just runs it · Apache-2.0 open source"
-    }
+    "sections": [
+      {
+        "title": {
+          "en": "Follow the operation",
+          "zh": "处理过程"
+        },
+        "body": {
+          "en": "The probe obtains GPU data or uses an explicit simulation. Registry loaders validate entries; picker tests configured VRAM and compute-capability floors and ranks candidates. The launcher constructs backend arguments and can start a separate process.",
+          "zh": "probe 获取 GPU 数据或使用显式模拟；登记表加载器校验条目，picker 检查配置显存和计算能力下限并排序，launcher 构造后端参数并可启动独立进程。"
+        },
+        "image": {
+          "light": "/assets/presentation/process-light.svg",
+          "dark": "/assets/presentation/process-dark.svg",
+          "alt": {
+            "en": "Follow the operation",
+            "zh": "处理过程"
+          }
+        }
+      },
+      {
+        "title": {
+          "en": "How ZeroRun works",
+          "zh": "ZeroRun 的工作方式"
+        },
+        "body": {
+          "en": "The probe obtains GPU data or uses an explicit simulation. Registry loaders validate entries; picker tests configured VRAM and compute-capability floors and ranks candidates. The launcher constructs backend arguments and can start a separate process.",
+          "zh": "probe 获取 GPU 数据或使用显式模拟；登记表加载器校验条目，picker 检查配置显存和计算能力下限并排序，launcher 构造后端参数并可启动独立进程。"
+        },
+        "image": {
+          "light": "/assets/presentation/architecture-light.svg",
+          "dark": "/assets/presentation/architecture-dark.svg",
+          "alt": {
+            "en": "How ZeroRun works",
+            "zh": "ZeroRun 的工作方式"
+          }
+        }
+      },
+      {
+        "title": {
+          "en": "Connect the pieces",
+          "zh": "输入与输出"
+        },
+        "body": {
+          "en": "The following routes are implemented in the source. Choose the input that matches your task and keep the resulting artifact with your project.",
+          "zh": "以下路径已有源码实现。按任务选择输入，并把生成的结果与项目一起保存。"
+        },
+        "image": {
+          "light": "/assets/presentation/integrations-light.svg",
+          "dark": "/assets/presentation/integrations-dark.svg",
+          "alt": {
+            "en": "Connect the pieces",
+            "zh": "输入与输出"
+          }
+        }
+      }
+    ],
+    "details": [
+      {
+        "title": {
+          "en": "Configuration",
+          "zh": "配置"
+        },
+        "body": {
+          "en": "ZERORUN_REGISTRY_DIR or the registry-dir option selects a custom registry. Entries define model, hf_id, quant/backend variants, min_vram_gb, compute_cap_min, args and chat_template_ref. --backend and --quant constrain selection; --dry-run prevents launch.",
+          "zh": "ZERORUN_REGISTRY_DIR 或 registry-dir 选项指定自定义登记表。条目定义 model、hf_id、quant/backend、min_vram_gb、compute_cap_min、args 与 chat_template_ref。--backend 和 --quant 约束选择，--dry-run 阻止启动。"
+        }
+      },
+      {
+        "title": {
+          "en": "Further use",
+          "zh": "进一步使用"
+        },
+        "body": {
+          "en": "The CLI exposes the following operations. Commands after the example use your own paths or identifiers.",
+          "zh": "CLI 提供以下操作。示例之外的命令需要替换成你的文件路径或标识。"
+        },
+        "code": "zerorun --list --gpu \"24:8.9\"\nzerorun <registered-alias> --dry-run --gpu \"24:8.9\"\n# Use a validated registry entry and installed backend for real execution:\nzerorun <registered-alias>"
+      }
+    ]
   }
 }

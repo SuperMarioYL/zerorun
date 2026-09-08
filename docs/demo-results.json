@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "source_revision": "c09416032314b78b821fdd61f6cfa9dea1319771",
+  "scope": "Pure configuration selection for a synthetic model entry and a simulated 24GB GPU. No model files, real hardware feasibility, backend launch or performance are tested.",
+  "steps": [
+    {
+      "label": "Recorded run",
+      "body": "Pure configuration selection for a synthetic model entry and a simulated 24GB GPU. No model files, real hardware feasibility, backend launch or performance are tested.",
+      "command": ".venv/bin/python examples/presentation-demo.py",
+      "output": "{\"quant\": \"Q4_K_M\", \"feasible\": true, \"reasons\": [\"score: accuracy 0.80 + backend 0.05 + vram-safety 0.020 = 0.870\"]}\n{\"quant\": \"Q8_0\", \"feasible\": false, \"reasons\": [\"VRAM short: have 24.0 GB, need 32 GB (-8.0 GB)\", \"infeasible \\u2014 listed for diagnostics only\"]}\nselected: Q4_K_M"
+    }
+  ]
+}
