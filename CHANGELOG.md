@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-17
+
+A fix-led hardening release — four reproduced defects fixed and the version
+lockstep extended, with no stack, audience, or distribution changes. No feature
+milestone (zero organic issues/PRs at grill time).
+
+### Fixed
+- **fix-cli-version-flag** (MED, `src/zerorun/cli.py`). `zerorun --version`
+  errored with "No such option: --version" (rc=2) — the CLI could not report
+  its own version even though v0.4.0 locked `zerorun.__version__` against the
+  VERSION file. A `--version` flag now prints `zerorun <version>` and exits 0,
+  sourcing the lockstep-guarded `__version__` attribute.
+  `tests/test_cli.py` covers the flag.
+- **fix-override-diagnostics** (MED, `src/zerorun/cli.py` `_resolve_pick`).
+  An invalid `--backend`/`--quant` override produced a FALSE "does not fit
+  this GPU" diagnostic (e.g. `--backend exllama` — a backend the product does
+  not ship — was reported as a hardware shortfall, with an unrelated variant's
+  reasons attached). Unknown values now exit 2 before the GPU-fit ranking,
+  naming the valid backends or the entry's available formats; a REAL variant
+  that is infeasible keeps the honest shortfall path (exit 1 + "does not fit
+  this GPU" + VRAM-short reasons). `tests/test_cli.py` pins all three
+  branches (red-before: 3 failed / 1 passed on the shipped v0.4.0 code).
+- **fix-registry-lint-ci-deps** (HIGH, `.github/workflows/registry-lint.yml`).
+  The registry-lint workflow had never run green: the only recorded run
+  (32620816317, 2026-08-23) failed at the validator step, which ran with no
+  dependency install (`import yaml` → ModuleNotFoundError on a clean runner),
+  and the pytest step's `pip install -e ".[dev]"` referenced a nonexistent
+  extra (dev deps are a PEP 735 `[dependency-groups]` table) with stderr
+  silenced, so pytest was never installed. The workflow now mirrors the green
+  `ci.yml` flow (`uv sync --dev` + `uv run`), so the m5 community-PR gate
+  actually validates registry PRs.
+- **quality-pynvml-to-nvidia-ml-py** (LOW-MED, `pyproject.toml`). The
+  deprecated `pynvml` PyPI package printed its own FutureWarning to stderr on
+  every CLI invocation that probes. The dependency is now `nvidia-ml-py>=12.0`
+  (the maintained NVIDIA binding it names as its replacement, shipping the
+  same `pynvml` module) — no source change, verified warning-free import.
+
+### Added
+- **quality-version-lockstep-site-changelog** (MED,
+  `tests/test_version.py`). The v0.4.0 lockstep test guarded only VERSION ==
+  pyproject == `__version__`; two release surfaces moved unwatched. The test
+  now also asserts `web/site.json`'s `content_version` equals the VERSION
+  file (site drift already required a dedicated repair commit once) and that
+  `CHANGELOG.md` carries the release's `## [x.y.z]` heading. Both checks skip
+  cleanly when their file is absent (sdist layout).
+
 ## [0.4.0] - 2026-09-02
 
 A clean bugfix release — a single verified correctness fix to the in-source

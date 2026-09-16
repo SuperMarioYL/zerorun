@@ -13,10 +13,17 @@ The ``VERSION`` file is the single source of truth (it is the surface the
 release process bumps first). ``pyproject.toml``'s ``version`` and
 ``zerorun.__version__`` must each equal it. The test does not hardcode the
 version number, so it auto-tracks each bump and only fails on partial drift.
+
+v0.5.0 (quality-version-lockstep-site-changelog) extends the same guard to the
+two other surfaces every release must move: ``web/site.json``'s
+``content_version`` (the Pages site publishes whatever is committed) and the
+Keep-a-Changelog ``## [x.y.z]`` heading in ``CHANGELOG.md``. Both checks skip
+cleanly when their file is absent (sdist layout).
 """
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 import tomllib
@@ -96,6 +103,50 @@ class TestVersionLockstep(unittest.TestCase):
         )
         (sole,) = unique
         self.assertEqual(sole, file_ver)
+
+    def test_site_content_version_matches_version_file(self) -> None:
+        # The Pages site publishes whatever web/site.json carries; a bump that
+        # misses it ships stale site copy (this drift already happened once —
+        # the v0.2.0-era "chore(site): refresh ... staleness drift alert"
+        # repair commit). Skipped when the file is absent (sdist layout).
+        site_path = ROOT / "web" / "site.json"
+        if not site_path.exists():
+            self.skipTest("web/site.json not present (sdist layout)")
+        file_ver = self.version_file_path.read_text(encoding="utf-8").strip()
+        content_version = json.loads(
+            site_path.read_text(encoding="utf-8")
+        ).get("content_version")
+        self.assertEqual(
+            content_version, file_ver,
+            msg=(
+                f"web/site.json content_version ({content_version!r}) drifts "
+                f"from the VERSION file ({file_ver!r}) — the site would "
+                "publish stale copy for this release."
+            ),
+        )
+
+    def test_changelog_has_version_heading(self) -> None:
+        # Keep-a-Changelog requires a "## [x.y.z]" heading per shipped
+        # version; a release without one mis-reports its own history.
+        changelog_path = ROOT / "CHANGELOG.md"
+        if not changelog_path.exists():
+            self.skipTest("CHANGELOG.md not present")
+        file_ver = self.version_file_path.read_text(encoding="utf-8").strip()
+        headings = {
+            line.strip()
+            for line in changelog_path.read_text(encoding="utf-8").splitlines()
+            if line.strip().startswith("## [")
+        }
+        self.assertTrue(
+            any(
+                h == f"## [{file_ver}]" or h.startswith(f"## [{file_ver}] ")
+                for h in headings
+            ),
+            msg=(
+                f"CHANGELOG.md has no '## [{file_ver}]' heading — a release "
+                "bump must add its own changelog entry."
+            ),
+        )
 
 
 if __name__ == "__main__":

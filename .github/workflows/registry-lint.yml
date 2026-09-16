@@ -31,9 +31,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # The validator imports zerorun.registry.schema (which imports PyYAML)
+      # and the tests need pytest, so deps MUST be installed before either
+      # step runs. Dev deps live in the PEP 735 [dependency-groups] table, so
+      # `pip install -e ".[dev]"` (a nonexistent extra) would silently install
+      # nothing for pytest. This mirrors the proven green ci.yml flow.
+      - name: Install uv
+        run: pip install uv
+      - name: Install the project (editable) + dev/test deps
+        run: uv sync --dev
       - name: Validate the registry against the typed schema
-        run: python scripts/validate_registry.py
+        run: uv run python scripts/validate_registry.py
       - name: Run registry + schema tests
-        run: |
-          pip install -e ".[dev]" 2>/dev/null || pip install -e .
-          python -m pytest tests/test_schema.py tests/test_picker.py tests/test_staleness.py -q
+        run: uv run python -m pytest tests/test_schema.py tests/test_picker.py tests/test_staleness.py -q

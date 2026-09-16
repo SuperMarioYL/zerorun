@@ -13,6 +13,7 @@ Surface (per the plan):
   ``(simulated)``).
 * ``zerorun staleness``        — per-model staleness report (drift alert vs the
   registry's ``staleness_pin``).
+* ``zerorun --version``        — print the ZeroRun version and exit.
 
 Routing: a single Typer command (no group, no COMMAND slot) inspects the
 first positional. ``probe`` and ``staleness`` are reserved verbs (dispatched
@@ -39,6 +40,7 @@ from rich.text import Text
 from .picker import Pick, best_pick_per_model, pick, select
 from .probe import GPUProbe, arch_family_from_compute_cap, probe_gpu
 from .registry.schema import (
+    VALID_BACKENDS,
     ModelEntry,
     default_registry_dir,
     list_registry_keys,
@@ -51,9 +53,17 @@ from .staleness import (
 
 # Re-exported so tests import the launcher through the cli package surface.
 from .launcher import LaunchError, launch  # noqa: F401
+from . import __version__
 
 #: The verb that selects the GPU-only report (reserved — not a model alias).
 PROBE_VERB = "probe"
+
+
+def _print_version(value: bool) -> None:
+    """``--version`` callback — print the version and exit (eager)."""
+    if value:
+        _console.print(f"zerorun {__version__}")
+        raise typer.Exit()
 
 app = typer.Typer(
     name="zerorun",
@@ -321,9 +331,32 @@ def _resolve_pick(
     """Resolve the pick for a launch, honoring overrides + reporting shortfalls.
 
     Returns the chosen :class:`Pick` or exits with a clear message:
+      * unknown backend value → exit 2 naming the valid backends;
+      * unknown quant value → exit 2 naming the entry's available formats;
       * override not feasible on this GPU → exit 1 with the shortfall reasons;
       * no feasible variant at all → exit 1 with the nearest miss reasons.
+
+    The unknown-value checks run BEFORE the GPU-fit ranking: :func:`select`
+    returns ``None`` whenever the override filter matches nothing, so without
+    them an invalid value would be mis-reported as "does not fit this GPU"
+    (a false hardware diagnostic) instead of a usage error.
     """
+    if backend is not None and backend not in VALID_BACKENDS:
+        _err_console.print(
+            f"[red]unknown backend[/red] {backend!r} — expected one of "
+            f"{VALID_BACKENDS}."
+        )
+        raise typer.Exit(code=2)
+    if quant_format is not None:
+        available = sorted({q.format for q in entry.quants})
+        if quant_format not in available:
+            _err_console.print(
+                f"[red]unknown quant[/red] {quant_format!r} for "
+                f"[cyan]{entry.registry_key}[/cyan] — available formats: "
+                f"{', '.join(available)}."
+            )
+            raise typer.Exit(code=2)
+
     chosen = select(probe, entry, backend=backend, quant_format=quant_format)
     if chosen is not None:
         return chosen
@@ -399,6 +432,12 @@ def main(
             "(simulated). Lets the picker run on any machine."
         ),
         metavar="VRAM:CC",
+    ),
+    version: bool = typer.Option(
+        False, "--version",
+        callback=_print_version,
+        is_eager=True,
+        help="print the ZeroRun version and exit.",
     ),
 ) -> None:
     """Probe your GPU, pick the best quant+backend+template, and just run it."""
