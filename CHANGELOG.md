@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-24
+
+A fix-led release — five reproduced defects fixed, with no stack, audience or
+distribution changes and no feature milestone (the repo had zero organic
+issues/PRs at review time).
+
+### Fixed
+- **fix-override-shortfall-diagnostics** (HIGH, `src/zerorun/cli.py`
+  `_resolve_pick`). An override that matched a real but infeasible variant
+  printed an unrelated *feasible* variant's score breakdown as its "reason",
+  because the diagnostic took `pick(...)[0]` and `pick` ranks feasible variants
+  first. `zerorun deepseek-v4 --gpu 32:8.0 --quant Q8_0` (Q8_0 needs 60 GB)
+  therefore reported "score: accuracy 0.80 + backend 0.05 + vram-safety 0.000 =
+  0.850" — Q4_K_M's score — and never the 28 GB shortfall the README promises
+  ("Rejected variants include their requirement shortfall"). The diagnostic now
+  selects the infeasible variant that matches the override (and the nearest
+  infeasible variant when no override is given), so the requested variant's own
+  floors are reported.
+- **fix-override-pair-validation** (MED, `src/zerorun/cli.py` `_resolve_pick`).
+  A (backend, quant) pair that no variant has was reported as a GPU shortfall
+  because `--quant` was validated against the union of formats across all
+  backends: `zerorun deepseek-v4 --gpu 80:9.0 --backend vllm --quant Q4_K_M`
+  (Q4_K_M is a llama.cpp-only variant) claimed "does not fit this GPU" on an
+  80 GB H100 where every variant fits. An unmatched pair is now a usage error
+  (exit 2) naming the entry's real (backend, format) pairs.
+- **fix-cli-numeric-flag-validation** (MED, `src/zerorun/cli.py`). `--port` had
+  no range check, so `--port 0` / `--port -5` / `--port 99999` were accepted and
+  surfaced as `http://localhost:-5/v1` and forwarded to the backend; it now
+  rejects anything outside 1..65535. `--gpu` accepted `nan`/`inf` (every
+  comparison against NaN is False, so the positivity guard could not catch
+  them), rendering a false probe panel ("VRAM: nan GB", "Arch: blackwell"); both
+  fields must now be finite.
+- **fix-release-assets-attach** (MED, `.github/workflows/release.yml`). The
+  workflow built `dist/` and uploaded it only as an Actions workflow artifact,
+  and its PyPI job is gated off, so every release (v0.1.0–v0.5.0) carried **zero**
+  downloadable assets. It now attaches the wheel, sdist and `checksums.txt` to
+  the GitHub Release, idempotently (`gh release view || gh release create`, then
+  `gh release upload --clobber`), so a tagged build is downloadable.
+- **fix-quickstart-install-command** (MED, `examples/quickstart.sh`). Step 1 was
+  `uv tool install zerorun`, which cannot resolve — the distribution is not on
+  PyPI and no release carried a wheel — so the shipped example failed on its
+  first line. It now installs from the checkout (`uv venv` + `uv pip install -e .`),
+  the same path both READMEs document.
+
+### Tests
+- `tests/test_cli.py` covers the override-shortfall and pair-validation branches
+  (including a probe where another variant IS feasible — the case the v0.5.0
+  regression test missed) plus the `--port`/`--gpu` validation.
+- `tests/test_release_pipeline.py` (new) guards the release workflow's
+  dist-attach step and the example's install command.
+
 ## [0.5.0] - 2026-09-17
 
 A fix-led hardening release — four reproduced defects fixed and the version

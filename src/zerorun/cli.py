@@ -29,6 +29,7 @@ promises.
 
 from __future__ import annotations
 
+import math
 from typing import Optional
 
 import typer
@@ -108,6 +109,14 @@ def _parse_gpu_spec(spec: str) -> GPUProbe:
         raise typer.BadParameter(
             "--gpu values must be numbers, e.g. '80:9.0'."
         )
+    # ``float`` accepts "nan"/"inf", and every comparison against NaN is False,
+    # so the positivity test below cannot catch them: reject non-finite values
+    # explicitly rather than rendering a bogus probe panel ("VRAM: nan GB",
+    # "Arch: blackwell").
+    if not (math.isfinite(vram) and math.isfinite(cc)):
+        raise typer.BadParameter(
+            "--gpu values must be finite numbers, e.g. '80:9.0'."
+        )
     if vram <= 0 or cc <= 0:
         raise typer.BadParameter("--gpu values must be positive.")
     return GPUProbe(
@@ -117,6 +126,20 @@ def _parse_gpu_spec(spec: str) -> GPUProbe:
         name=f"simulated-{vram:.0f}gb-cc{cc}",
         source="simulated",
     )
+
+
+def _validate_port(port: Optional[int]) -> None:
+    """Reject a serving port outside the TCP range (a usage error).
+
+    ``--port`` is forwarded verbatim into the backend argv and rendered into the
+    surfaced endpoint, so an out-of-range value produces an unusable
+    ``http://localhost:-5/v1`` rather than an error. ``None`` means "use the
+    backend default" and is always accepted.
+    """
+    if port is not None and not (1 <= port <= 65535):
+        raise typer.BadParameter(
+            f"must be between 1 and 65535, got {port}.", param_hint="--port"
+        )
 
 
 def _resolve_probe(
@@ -333,6 +356,7 @@ def _resolve_pick(
     Returns the chosen :class:`Pick` or exits with a clear message:
       * unknown backend value → exit 2 naming the valid backends;
       * unknown quant value → exit 2 naming the entry's available formats;
+      * a (backend, quant) pair no variant has → exit 2 naming the real pairs;
       * override not feasible on this GPU → exit 1 with the shortfall reasons;
       * no feasible variant at all → exit 1 with the nearest miss reasons.
 
@@ -356,13 +380,39 @@ def _resolve_pick(
                 f"{', '.join(available)}."
             )
             raise typer.Exit(code=2)
+    if backend is not None and quant_format is not None:
+        # Each value is valid on its own, but the pair may match no variant at
+        # all (e.g. --backend vllm --quant Q4_K_M, a llama.cpp-only format).
+        # That is a usage error, not a GPU shortfall: every variant may fit the
+        # card and the override still selects nothing.
+        pairs = sorted({(q.backend, q.format) for q in entry.quants})
+        if (backend, quant_format) not in pairs:
+            valid = ", ".join(f"{b}/{f}" for b, f in pairs)
+            _err_console.print(
+                f"[red]no such variant[/red] {backend}/{quant_format} for "
+                f"[cyan]{entry.registry_key}[/cyan] — available: {valid}."
+            )
+            raise typer.Exit(code=2)
 
     chosen = select(probe, entry, backend=backend, quant_format=quant_format)
     if chosen is not None:
         return chosen
 
-    ranked = pick(probe, entry)
-    nearest = ranked[0] if ranked else None
+    # Nothing matched. The diagnostic must describe the variant(s) the user
+    # actually asked for — or, with no override, the nearest infeasible one.
+    # :func:`pick` ranks feasible variants FIRST, so taking ``ranked[0]`` here
+    # would print a *feasible* variant's score breakdown as a shortfall
+    # whenever some other variant of the entry fits.
+    nearest = next(
+        (
+            p
+            for p in pick(probe, entry)
+            if not p.feasible
+            and (backend is None or p.backend == backend)
+            and (quant_format is None or p.quant.format == quant_format)
+        ),
+        None,
+    )
     _err_console.print(
         f"[red]no feasible pick[/red] for [cyan]{entry.registry_key}[/cyan] "
         f"on this GPU (VRAM {probe.vram_gb:.0f} GB, compute-cap "
@@ -442,6 +492,7 @@ def main(
 ) -> None:
     """Probe your GPU, pick the best quant+backend+template, and just run it."""
     entries, _keys = _load_registry(registry_dir)
+    _validate_port(port)
 
     # --- `zerorun --list` ----------------------------------------------------
     if list_models:

@@ -105,6 +105,133 @@ class TestOverrideDiagnostics(unittest.TestCase):
         )
         self.assertIn("does not fit this GPU", result.output)
         self.assertIn("VRAM short", result.output)
+        # ...and it must describe the REQUESTED variant, not another one: NVFP4's
+        # floor is 56 GB (Q4_K_M's is 36), and its arch floor is Hopper.
+        self.assertIn("need 56 GB", result.output)
+        self.assertIn("compute-cap 8.9 < required 9.0", result.output)
+
+
+class TestOverrideShortfallDescribesRequestedVariant(unittest.TestCase):
+    """v0.6.0 fix-override-shortfall-diagnostics.
+
+    ``_resolve_pick`` used to take ``pick(...)[0]`` for its diagnostic, and
+    ``pick`` ranks feasible variants first — so whenever the entry had ANY
+    feasible variant, the "reason" printed under "does not fit this GPU" was a
+    feasible variant's score breakdown and the requested variant's shortfall was
+    never shown. The v0.5.0 test above misses this because kimi-k3 on 24:8.9 has
+    no feasible variant at all; these use deepseek-v4 on 32:8.0, where Q4_K_M
+    (32 GB) fits while Q8_0 (60 GB) and NVFP4/vllm (48 GB, Hopper) do not.
+    """
+
+    def test_infeasible_quant_override_reports_its_own_vram_floor(self) -> None:
+        result = runner.invoke(
+            app, ["deepseek-v4", "--gpu", "32:8.0", "--quant", "Q8_0"]
+        )
+        self.assertEqual(result.exit_code, 1, msg=result.output)
+        self.assertIn("does not fit this GPU", result.output)
+        self.assertIn(
+            "VRAM short: have 32.0 GB, need 60 GB (-28.0 GB)", result.output,
+            msg="the requested Q8_0 floor must be reported",
+        )
+        self.assertNotIn(
+            "accuracy", result.output,
+            msg=(
+                "a feasible variant's score breakdown must never be printed as "
+                f"the shortfall: {result.output}"
+            ),
+        )
+
+    def test_infeasible_backend_override_reports_that_variants_floors(self) -> None:
+        # --backend vllm on 32 GB / cc 8.0: the vllm variant (NVFP4) is short on
+        # both axes, while the llama.cpp Q4_K_M variant fits — the exact shape
+        # that produced a bogus score line before v0.6.0.
+        result = runner.invoke(
+            app, ["deepseek-v4", "--gpu", "32:8.0", "--backend", "vllm"]
+        )
+        self.assertEqual(result.exit_code, 1, msg=result.output)
+        self.assertIn("need 48 GB", result.output)
+        self.assertIn("compute-cap 8.0 < required 9.0", result.output)
+        self.assertNotIn("accuracy", result.output)
+
+    def test_no_override_still_reports_nearest_infeasible_variant(self) -> None:
+        # Regression guard for the path the change must not disturb: with no
+        # override and no feasible variant, the closest miss is reported.
+        result = runner.invoke(app, ["deepseek-v4", "--no-probe"])
+        self.assertEqual(result.exit_code, 1, msg=result.output)
+        self.assertIn("no NVIDIA GPU detected", result.output)
+
+
+class TestOverridePairValidation(unittest.TestCase):
+    """v0.6.0 fix-override-pair-validation.
+
+    Each override value was valid on its own, so a pair that no variant has fell
+    through to the GPU-fit branch and was reported as a hardware shortfall even
+    when every variant of the model fits the probed card.
+    """
+
+    def test_contradictory_pair_exits_2_and_names_real_pairs(self) -> None:
+        result = runner.invoke(
+            app,
+            ["deepseek-v4", "--gpu", "80:9.0", "--backend", "vllm",
+             "--quant", "Q4_K_M"],
+        )
+        self.assertEqual(result.exit_code, 2, msg=result.output)
+        self.assertIn("no such variant", result.output.lower())
+        for pair in ("llama.cpp/Q4_K_M", "llama.cpp/Q8_0", "vllm/NVFP4"):
+            self.assertIn(pair, result.output)
+        self.assertNotIn("does not fit this GPU", result.output)
+
+    def test_mirror_pair_also_exits_2(self) -> None:
+        result = runner.invoke(
+            app,
+            ["deepseek-v4", "--gpu", "80:9.0", "--backend", "llama.cpp",
+             "--quant", "NVFP4"],
+        )
+        self.assertEqual(result.exit_code, 2, msg=result.output)
+        self.assertIn("no such variant", result.output.lower())
+
+    def test_valid_pair_still_launches_the_plan(self) -> None:
+        result = runner.invoke(
+            app,
+            ["deepseek-v4", "--gpu", "80:9.0", "--dry-run",
+             "--backend", "vllm", "--quant", "NVFP4"],
+        )
+        self.assertEqual(result.exit_code, 0, msg=result.output)
+        self.assertIn("vllm serve deepseek-ai/DeepSeek-V4-flash-dspark", result.output)
+
+
+class TestNumericFlagValidation(unittest.TestCase):
+    """v0.6.0 fix-cli-numeric-flag-validation."""
+
+    def test_out_of_range_port_exits_2(self) -> None:
+        for bad in ("0", "-5", "99999"):
+            with self.subTest(port=bad):
+                result = runner.invoke(
+                    app,
+                    ["qwen-3.6", "--gpu", "24:8.9", "--dry-run", "--port", bad],
+                )
+                self.assertEqual(result.exit_code, 2, msg=result.output)
+                self.assertIn("1 and 65535", result.output)
+                self.assertNotIn("endpoint:", result.output)
+
+    def test_valid_port_still_works(self) -> None:
+        result = runner.invoke(
+            app, ["qwen-3.6", "--gpu", "24:8.9", "--dry-run", "--port", "9000"]
+        )
+        self.assertEqual(result.exit_code, 0, msg=result.output)
+        self.assertIn("http://localhost:9000/v1", result.output)
+
+    def test_non_finite_gpu_spec_exits_2(self) -> None:
+        for bad in ("80:nan", "nan:9.0", "inf:9.0", "-inf:9.0"):
+            with self.subTest(gpu=bad):
+                result = runner.invoke(app, ["probe", "--gpu", bad])
+                self.assertEqual(result.exit_code, 2, msg=result.output)
+                self.assertNotIn("Arch:", result.output)
+
+    def test_finite_gpu_spec_still_works(self) -> None:
+        result = runner.invoke(app, ["probe", "--gpu", "80:9.0"])
+        self.assertEqual(result.exit_code, 0, msg=result.output)
+        self.assertIn("hopper", result.output)
 
 
 if __name__ == "__main__":

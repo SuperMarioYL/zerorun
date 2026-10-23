@@ -32,6 +32,21 @@ jobs:
         with:
           name: dist
           path: dist/*
+      # Attach the built wheel/sdist/checksums to the GitHub Release so a
+      # released version is downloadable (the workflow artifact above expires
+      # and is not part of the Release). Idempotent by design: the tag push
+      # precedes the release creation, so create it here only if it is still
+      # missing, and --clobber tolerates assets already uploaded by a local
+      # `dist/` publish.
+      - name: Attach dist/ to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+                 --title "${GITHUB_REPOSITORY#*/} $GITHUB_REF_NAME" --generate-notes \
+            || true
+          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber dist/*
 
   # OPTIONAL PyPI publish — off by default. A fresh repo has no PyPI Trusted
   # Publisher registered, so an always-on job would fail the FIRST release with

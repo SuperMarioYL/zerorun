@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zerorun"
-version = "0.5.0"
+version = "0.6.0"
 description = "Rank registered model quantization/backend configurations against GPU metadata and inspect or launch the selected command."
 readme = "README.md"
 license = {text = "Apache-2.0"}
